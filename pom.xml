@@ -65,11 +65,6 @@
 			<groupId>org.bytedeco</groupId>
 			<artifactId>arpack-ng-platform</artifactId>
 			<version>3.9.0-1.5.9</version>
-		</dependency>
-		<dependency>
-			<groupId>Package_BaseModel</groupId>
-			<artifactId>Package_BaseModel</artifactId>
-			<version>0.0.1-SNAPSHOT</version>
-		</dependency>
+		</dependency>		
 	</dependencies>
 </project>
