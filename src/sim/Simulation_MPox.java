@@ -1,7 +1,9 @@
 package sim;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Properties;
+import java.util.regex.Pattern;
 
 import population.Population_Bridging;
 import util.PropValUtils;
@@ -16,7 +18,7 @@ public class Simulation_MPox extends Simulation_ClusterModelTransmission {
 			System.out.println(USAGE_INFO);
 			System.exit(0);
 		} else {
-			Simulation_MPox.launch(args, new Simulation_MPox());					
+			Simulation_MPox.launch(args, new Simulation_MPox());
 
 		}
 	}
@@ -46,6 +48,25 @@ public class Simulation_MPox extends Simulation_ClusterModelTransmission {
 		}
 		return new Runnable_ClusterModel_MPox(cMap_seed, sim_seed, pop_composition,
 				baseContactMapMapping.get(cMap_seed), num_time_steps_per_snap, num_snap);
+	}
+
+	@Override
+	protected void zipSelectedOutputs(String file_name, String zip_file_name)
+			throws IOException, FileNotFoundException {
+		Pattern pattern_include_file;
+		String  zip_file_name_mod = zip_file_name;
+		if (preGenSeedFile != null) {			
+			zip_file_name_mod  =  preGenSeedFile.getName().replace('.', '_') 
+					+ "_"+ zip_file_name;					
+			pattern_include_file = Pattern
+					.compile("(\\[" + preGenSeedFile.getName()+ ".*\\]){0,1}" + file_name.replaceAll("%d", "(-{0,1}(?!0)\\\\d+)"));
+
+		} else {
+			pattern_include_file = Pattern
+					.compile("(\\[.*\\]){0,1}" + file_name.replaceAll("%d", "(-{0,1}(?!0)\\\\d+)"));
+		}			
+		zipSelectedOutputs(baseDir, zip_file_name_mod, pattern_include_file, exportSkipBackup);
+		super.zipSelectedOutputs(file_name, zip_file_name_mod);
 	}
 
 }
