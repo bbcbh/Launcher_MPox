@@ -1,12 +1,8 @@
 package sim;
 
-import java.io.File;
-import java.io.FileFilter;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Properties;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import population.Population_Bridging;
 import util.PropValUtils;
@@ -56,52 +52,54 @@ public class Simulation_MPox extends Simulation_ClusterModelTransmission {
 	@Override
 	protected void zipSelectedOutputs(String file_name, String zip_file_name)
 			throws IOException, FileNotFoundException {
-		Pattern pattern_include_file;
-		String zip_file_name_mod = zip_file_name;
-		if (preGenSeedFile != null) {
-			zip_file_name_mod = preGenSeedFile.getName().replace('.', '_') + "_" + zip_file_name;
-			pattern_include_file = Pattern.compile("(\\[" + preGenSeedFile.getName() + ".*\\]){0,1}"
-					+ file_name.replaceAll("%d", "(-{0,1}(?!0)\\\\d+)"));
-
-		} else {
-			pattern_include_file = Pattern
-					.compile("(\\[.*\\]){0,1}" + file_name.replaceAll("%d", "(-{0,1}(?!0)\\\\d+)"));
-		}
-		zipSelectedOutputs(baseDir, zip_file_name_mod, pattern_include_file, exportSkipBackup);
+		// Do nothing 
+		
+//		Pattern pattern_include_file;
+//		String zip_file_name_mod = zip_file_name;
+//		if (preGenSeedFile != null) {
+//			zip_file_name_mod = preGenSeedFile.getName().replace('.', '_') + "_" + zip_file_name;
+//			pattern_include_file = Pattern.compile("(\\[" + preGenSeedFile.getName() + ".*\\]){0,1}"
+//					+ file_name.replaceAll("%d", "(-{0,1}(?!0)\\\\d+)"));
+//
+//		} else {
+//			pattern_include_file = Pattern
+//					.compile("(\\[.*\\]){0,1}" + file_name.replaceAll("%d", "(-{0,1}(?!0)\\\\d+)"));
+//		}
+//		zipSelectedOutputs(baseDir, zip_file_name_mod, pattern_include_file, exportSkipBackup);
 	}
 
 	@Override
 	protected void finalise_simulations() throws IOException, FileNotFoundException {
-		// Skip skipping for multiple sim on same directory,
-		// Instead clean up extra CSV
-		if (preGenSeedFile != null) {
-			Pattern pattern_csv_extra = Pattern
-					.compile("(?:\\[" + preGenSeedFile.getName() + ".*\\]){0,1}(.*)_(-{0,1}\\d+)_-{0,1}\\d+.csv");
-
-			Pattern pattern_csv_cMap = Pattern
-					.compile(FILENAME_FORMAT_ALL_CMAP.replaceAll("%d", "(-{0,1}(?!0)\\\\d+)"));
-
-			FileFilter extra_filter = new FileFilter() {
-				@Override
-				public boolean accept(File pathname) {
-					return !pattern_csv_cMap.matcher(pathname.getName()).matches()
-							&& pattern_csv_extra.matcher(pathname.getName()).matches();
-				}
-			};
-
-			File[] extra_csv = baseDir.listFiles(extra_filter);
-
-			while (extra_csv != null && extra_csv.length > 0) {
-				Matcher m = pattern_csv_extra.matcher(extra_csv[0].getName());
-				m.matches();
-				String filename_id = m.group(1);
-				String baseContactSeed_str = m.group(2);
-				zipSelectedOutputs(String.format("%s_%s_%%d.csv", filename_id, baseContactSeed_str),
-						String.format("%s_%s.csv.7z", filename_id, baseContactSeed_str));
-				extra_csv = baseDir.listFiles(extra_filter);
-			}
-
-		}
+		// Do nothing 
+		
+//		if (preGenSeedFile != null) {
+//			Pattern pattern_csv_extra = Pattern
+//					.compile("(?:\\[" + preGenSeedFile.getName() + ".*\\]){0,1}(.*)_(-{0,1}\\d+)_-{0,1}\\d+.csv");
+//
+//			Pattern pattern_csv_cMap = Pattern
+//					.compile(FILENAME_FORMAT_ALL_CMAP.replaceAll("%d", "(-{0,1}(?!0)\\\\d+)"));
+//
+//			FileFilter extra_filter = new FileFilter() {
+//				@Override
+//				public boolean accept(File pathname) {
+//					return !pattern_csv_cMap.matcher(pathname.getName()).matches()
+//							&& pattern_csv_extra.matcher(pathname.getName()).matches();
+//				}
+//			};
+//
+//			File[] extra_csv = baseDir.listFiles(extra_filter);
+//
+//			while (extra_csv != null && extra_csv.length > 0) {
+//				Matcher m = pattern_csv_extra.matcher(extra_csv[0].getName());
+//				m.matches();
+//				String filename_id = m.group(1);
+//				String baseContactSeed_str = m.group(2);
+//				zipSelectedOutputs(String.format("%s_%s_%%d.csv", filename_id, baseContactSeed_str),
+//						String.format("%s_%s.csv.7z", filename_id, baseContactSeed_str));
+//				extra_csv = baseDir.listFiles(extra_filter);
+//			}
+//
+//		}
 
 	}
 
