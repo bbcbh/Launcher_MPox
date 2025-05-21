@@ -8,7 +8,7 @@ import relationship.ContactMap;
 
 public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmission {
 
-	public static final String trans_offset_key = "TRANS_OFFSET";
+	public static final String trans_offset_key = "TRANSOFFSET";
 
 	private int trans_offset = 0;
 
