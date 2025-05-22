@@ -103,7 +103,7 @@ public class Simulation_MPox extends Simulation_ClusterModelTransmission {
 				
 				Simulation_ClusterModelTransmission.zipSelectedOutputs(
 						baseDir, 
-						String.format("%s_%s.csv.7z", filename_id, baseContactSeed_str),						
+						String.format("%s_%s_[%s].csv.7z", filename_id, baseContactSeed_str, preGenSeedFile.getName()),						
 						pattern_include_file, exportSkipBackup);
 				extra_csv = baseDir.listFiles(extra_filter);
 			}
