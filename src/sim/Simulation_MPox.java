@@ -73,15 +73,6 @@ public class Simulation_MPox extends Simulation_ClusterModelTransmission {
 	}
 	
 	
-
-	
-	@Override
-	public void generateOneResultSet() throws IOException, InterruptedException {
-		this.preGenSeedFile  = new File("C:\\Users\\bhui\\Documents\\Java_Test\\Test_SimClusterModel_Transmisson_MP\\SeedLists\\Seed_List_0.csv");
-		
-		finalise_simulations();
-	}
-
 	@Override
 	protected void finalise_simulations() throws IOException, FileNotFoundException {
 		
