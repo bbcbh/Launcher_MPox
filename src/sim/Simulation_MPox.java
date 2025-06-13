@@ -17,7 +17,7 @@ public class Simulation_MPox extends Simulation_ClusterModelTransmission {
 			System.out.println(USAGE_INFO);
 			System.exit(0);
 		} else {
-			Simulation_MPox.launch(args, new Simulation_MPox());
+			Simulation_ClusterModelTransmission.launch(args, new Simulation_MPox());
 
 		}
 	}
@@ -46,14 +46,14 @@ public class Simulation_MPox extends Simulation_ClusterModelTransmission {
 					int[].class);
 		}
 		return new Runnable_ClusterModel_MPox(cMap_seed, sim_seed, pop_composition,
-				baseContactMapMapping.get(cMap_seed), num_time_steps_per_snap, num_snap);
+				baseContactMapMapping.get(cMap_seed), num_time_steps_per_snap, num_snap, baseDir);
 	}
 
 	@Override
 	protected void zipSelectedOutputs(String file_name, String zip_file_name)
 			throws IOException, FileNotFoundException {
-		// Do nothing 
-		
+		// Do nothing
+
 //		Pattern pattern_include_file;
 //		String zip_file_name_mod = zip_file_name;
 //		if (preGenSeedFile != null) {
@@ -67,14 +67,14 @@ public class Simulation_MPox extends Simulation_ClusterModelTransmission {
 //		}
 //		zipSelectedOutputs(baseDir, zip_file_name_mod, pattern_include_file, exportSkipBackup);
 	}
-	
-	
+
+
 	@Override
 	protected void finalise_simulations() throws IOException, FileNotFoundException {
-		
+
 		// Remove zipping due to sync issue
-		
-//		if (preGenSeedFile != null) { 
+
+//		if (preGenSeedFile != null) {
 //			Pattern pattern_csv_extra = Pattern
 //					.compile("(?:\\[" + preGenSeedFile.getName() + ".*\\]){0,1}(.*)_(-{0,1}\\d+)_-{0,1}\\d+.csv");
 //
@@ -95,19 +95,19 @@ public class Simulation_MPox extends Simulation_ClusterModelTransmission {
 //				Matcher m = pattern_csv_extra.matcher(extra_csv[0].getName());
 //				m.matches();
 //				String filename_id = m.group(1);
-//				String baseContactSeed_str = m.group(2);								
+//				String baseContactSeed_str = m.group(2);
 //				final Pattern pattern_include_file = Pattern
 //						.compile("(\\[" + preGenSeedFile.getName() +".*\\]){0,1}" + filename_id + "_-{0,1}\\d+.*csv" );
-//				
+//
 //				Simulation_ClusterModelTransmission.zipSelectedOutputs(
-//						baseDir, 
-//						String.format("%s_%s_[%s].csv.7z", filename_id, baseContactSeed_str, preGenSeedFile.getName()),						
+//						baseDir,
+//						String.format("%s_%s_[%s].csv.7z", filename_id, baseContactSeed_str, preGenSeedFile.getName()),
 //						pattern_include_file, exportSkipBackup);
 //				extra_csv = baseDir.listFiles(extra_filter);
 //			}
 //
 //		}
-		
+
 
 	}
 
