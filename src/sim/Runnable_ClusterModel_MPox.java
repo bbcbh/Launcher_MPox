@@ -2,6 +2,7 @@ package sim;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -27,6 +28,7 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 	private static int VACCINE_SETTING_INDEX_INIT_VACCINE_EFFECT = VACCINE_SETTING_INDEX_BOOSTER_WINDOW + 1;
 
 	private static final String fName_vaccine_coverage = "Vaccine_Coverage.csv";
+	private static final String fName_vaccine_hist = "Vaccine_Hist.csv";
 
 	private Object[] vaccine_setting_global = new Object[] {
 			// Duration of 5 years (US CDC)
@@ -67,7 +69,7 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 		File vaccine_coverage_preset = new File(baseDir, fName_vaccine_coverage);
 		if (vaccine_coverage_preset.exists()) {
 			RandomGenerator RNG = new MersenneTwisterRandomGenerator(sim_seed);
-			
+
 			try {
 				int maxPersonId = 220000;
 
@@ -84,8 +86,16 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 
 				String[] vacc_lines = util.Util_7Z_CSV_Entry_Extract_Callable
 						.extracted_lines_from_text(vaccine_coverage_preset);
-								
-				int v_start = Integer.parseInt(vacc_lines[0].split(",")[0]);
+
+				String[] header_line = vacc_lines[0].split(","); // Start_time, dose_eff_1, dose_eff_2....
+				int v_start = Integer.parseInt(header_line[0]);
+				
+				double[] vacc_eff = new double[header_line.length-1];
+				for(int d = 0; d < vacc_eff.length; d++) {
+					vacc_eff[d] = Double.parseDouble(header_line[d+1]);
+				}
+				vaccine_setting_global[VACCINE_SETTING_INDEX_INIT_VACCINE_EFFECT] = vacc_eff;
+				
 				int[] booster_range = (int[]) vaccine_setting_global[VACCINE_SETTING_INDEX_BOOSTER_WINDOW];
 
 				for (int line_pt = 1; line_pt < vacc_lines.length; line_pt++) {
@@ -233,7 +243,7 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 				if (last_dose_at >= 2 && vac_rec.get(last_dose_at) < currentTime) {
 					int numDose = 1;
 					int lastDoseTime = vac_rec.get(vac_rec.size() - 1);
-					for (int d = last_dose_at-1; d >= 2; d--) {
+					for (int d = last_dose_at - 1; d >= 2; d--) {
 						int dose_ck = vac_rec.get(d);
 						int gap_time = lastDoseTime - dose_ck;
 						if (booster_range[0] <= gap_time && gap_time < booster_range[1]) {
@@ -247,7 +257,7 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 					if (vac_rec.get(last_dose_at) < currentTime
 							&& currentTime < vac_rec.get(last_dose_at) + vaccine_dur) {
 						// Assume vaccine last for 5 years
-						double vaccine_effect_init = vaccine_eff[Math.min(numDose-1, vaccine_eff.length - 1)];
+						double vaccine_effect_init = vaccine_eff[Math.min(numDose - 1, vaccine_eff.length - 1)];
 						double vacc_eff = vaccine_effect_init
 								* Math.exp(vaccine_wane_rate * (currentTime - vac_rec.get(last_dose_at)));
 						transProbAdj *= (1 - vacc_eff);
@@ -256,8 +266,6 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 
 				}
 
-
-
 			}
 		}
 
@@ -265,9 +273,39 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 	}
 
 	@Override
-	protected void postTimeStep(int currentTime) {
-		// TODO Auto-generated method stub
-		super.postTimeStep(currentTime);
+	protected void postSimulation(Object[] simulation_store) {
+		super.postSimulation(simulation_store);
+
+		// Print vaccine stat
+		String filePrefix = this.getRunnableId() == null ? String.format("[%d,%d]", this.cMAP_SEED, this.sIM_SEED)
+				: this.getRunnableId();
+
+		if (!vaccine_record_map.isEmpty()) {
+			try {
+				PrintWriter pWri = new PrintWriter(new File(baseDir, filePrefix + fName_vaccine_hist));
+				pWri.println("ID,-INF,Dose_Time...");
+				Integer[] keys = vaccine_record_map.keySet().toArray(new Integer[0]);
+				Arrays.sort(keys);
+				for (Integer key : keys) {
+					ArrayList<Integer> ent = vaccine_record_map.get(key);
+					if (ent.size() > 2) { // At least one dose
+						for (int i = 0; i < ent.size(); i++) {
+							if (i != 0) {
+								pWri.print(',');
+							}
+							pWri.print(ent.get(i));
+						}
+						pWri.println();
+					}
+				}
+
+				pWri.close();
+			} catch (IOException e) {
+				e.printStackTrace(System.err);
+			}
+
+		}
+
 	}
 
 	@Override
