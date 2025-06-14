@@ -84,7 +84,8 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 
 				String[] vacc_lines = util.Util_7Z_CSV_Entry_Extract_Callable
 						.extracted_lines_from_text(vaccine_coverage_preset);
-				int v_start = 730;
+								
+				int v_start = Integer.parseInt(vacc_lines[0].split(",")[0]);
 				int[] booster_range = (int[]) vaccine_setting_global[VACCINE_SETTING_INDEX_BOOSTER_WINDOW];
 
 				for (int line_pt = 1; line_pt < vacc_lines.length; line_pt++) {
