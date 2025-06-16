@@ -38,7 +38,9 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 			// Booster limit range (anything bigger revert to first dose)
 			new int[] { 24, 35 },
 			// D1 (from chat)
-			new double[] { 0.76, 0.82 }, };
+			new double[] { 0.76, 0.82 },
+
+	};
 
 	private int trans_offset = 0;
 
@@ -46,8 +48,8 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 	private HashMap<Integer, ArrayList<Integer>> vaccine_record_map = new HashMap<>();
 	// Key = pid, V = ArrayList<Integer> of {pid, dose_days};
 
-	private HashMap<Integer, ArrayList<Integer>> dosage_candidate = new HashMap<>();
-	// Key = number of continous dose so far (or in partneship if == 0), V =
+	private HashMap<Integer, ArrayList<Integer>> vaccine_candidate_by_booster_count = new HashMap<>();
+	// Key = number of continuous booster (or in partnership if == 0), V =
 	// ArrayList<Integer> of candidate pid
 
 	private HashMap<Integer, int[]> vaccine_schedule = new HashMap<>();
@@ -60,8 +62,6 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 	private static final int VACC_STAT_IN_BOOSTER_RANGE = VACC_STAT_EVER_VACC + 1;
 	private static final int VACC_STAT_TRANSMISSON_EFFCTED = VACC_STAT_IN_BOOSTER_RANGE + 1;
 	private static final int LENGTH_VACC_STAT = VACC_STAT_TRANSMISSON_EFFCTED + 1;
-
-	private int vaccine_backward_fill = -1;
 
 	@Override
 	protected int[] updateCMap(ContactMap cMap, int currentTime, Integer[][] edges_array, int edges_array_pt,
@@ -85,17 +85,17 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 				}
 			}
 
-			// Clear the new dose
-			if (dosage_candidate.size() > 0) {
-				dosage_candidate.get(0).clear();
+			// Clear the Dose 1 candidate
+			if (vaccine_candidate_by_booster_count.size() > 0) {
+				vaccine_candidate_by_booster_count.get(0).clear();
 			} else {
 				for (int i = 0; i < num_vaccine.length; i++) {
-					dosage_candidate.put(i, new ArrayList<>());
+					vaccine_candidate_by_booster_count.put(i, new ArrayList<>());
 				}
 			}
 			// Remove all potential booster that is already expired.
-			for (int i = 1; i < dosage_candidate.size(); i++) {
-				ArrayList<Integer> dosage_ent = dosage_candidate.get(i);
+			for (int i = 1; i < vaccine_candidate_by_booster_count.size(); i++) {
+				ArrayList<Integer> dosage_ent = vaccine_candidate_by_booster_count.get(i);
 				for (int j = 0; j < dosage_ent.size(); j++) {
 					int pid = dosage_ent.get(j);
 					ArrayList<Integer> vacc_rec = vaccine_record_map.get(pid);
@@ -107,29 +107,23 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 			// Add new dose to those with partner today
 			for (Integer pid : in_partnership) {
 				ArrayList<Integer> vacc_rec = vaccine_record_map.get(pid);
-				boolean no_booster = vacc_rec == null;
-				if (vacc_rec != null) {
-					no_booster = vacc_rec.size() == 1;
-					if (vacc_rec.size() > 1) {
-						no_booster = vacc_rec.get(vacc_rec.size() - 1) < (currentTime - booster_range[1]);
-					}
-				}
-				if (no_booster) {
-					ArrayList<Integer> dosage_ent = dosage_candidate.get(0);
-					if (dosage_ent == null) {
-						dosage_ent = new ArrayList<>();
-					}
-					dosage_ent.add(pid);
+				int num_continious_booster = getNumContinuousBooster(currentTime, vacc_rec);
+				num_continious_booster = Math.min(num_continious_booster, num_vaccine.length - 1);
+				ArrayList<Integer> dosage_ent = vaccine_candidate_by_booster_count.get(num_continious_booster);
+				int pt = Collections.binarySearch(dosage_ent, pid);
+				if (pt < 0) {
+					dosage_ent.add(~pt, pid);
 				}
 			}
 
-			Collections.sort(dosage_candidate.get(0));
+			Collections.sort(vaccine_candidate_by_booster_count.get(0));
 
-			for (int d = 0; d < num_vaccine.length; d++) {
-				if (num_vaccine[d] > 0) {
-					ArrayList<Integer> vacc_candidates = dosage_candidate.get(d);
+			ArrayList<Integer> vacc_today_all_groups = new ArrayList<>();
+			for (int dose_pt = 0; dose_pt < num_vaccine.length; dose_pt++) {
+				if (num_vaccine[dose_pt] > 0) {
+					ArrayList<Integer> vacc_candidates = vaccine_candidate_by_booster_count.get(dose_pt);
 					Integer[] vacc_today = vacc_candidates.toArray(new Integer[0]);
-					if (d != 0) {
+					if (dose_pt != 0) {
 						ArrayList<Integer> vacc_rec_order_filtered = new ArrayList<>();
 						for (int pid : vacc_today) {
 							ArrayList<Integer> vacc_rec = vaccine_record_map.get(pid);
@@ -142,77 +136,89 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 							}
 						}
 						vacc_today = vacc_rec_order_filtered.toArray(new Integer[0]);
+					}
+					if (num_vaccine[dose_pt] < vacc_today.length) {
+						vacc_today = util.ArrayUtilsRandomGenerator.randomSelect(vacc_today, num_vaccine[dose_pt],
+								vaccine_rng);
+					} else if (num_vaccine[dose_pt] > vacc_today.length) {
+						// Not enough candidate - fill the rest with 'artificial' vaccination record
+						int fill_index = vacc_today.length;
+						int pt;
+						Arrays.sort(vacc_today);
+						vacc_today = Arrays.copyOf(vacc_today, num_vaccine[dose_pt]);
+						Integer[] all_pids = cMap.vertexSet().toArray(new Integer[0]);
 
-						if (currentTime < vaccine_backward_fill && vacc_today.length < num_vaccine[d]) {
-							for (Integer pid : dosage_candidate.get(0)) {
-								int pt = Collections.binarySearch(vacc_rec_order_filtered, pid);
+						while (fill_index < vacc_today.length) {
+							Integer pid_a = all_pids[vaccine_rng.nextInt(all_pids.length)];
+							ArrayList<Integer> vacc_rec = vaccine_record_map.get(pid_a);
+							
+							// Make sure the person is not a booster candidate
+							if (getNumContinuousBooster(currentTime, vacc_rec) == 0) {
+								
+								
+								// Make sure chosen not are not already vaccinated today
+								pt = Arrays.binarySearch(vacc_today, 0, fill_index, pid_a);
 								if (pt < 0) {
-									vacc_rec_order_filtered.add(~pt, pid);
+									pt = Collections.binarySearch(vacc_today_all_groups, pid_a);
+									if (pt < 0) {
+										vacc_today[fill_index] = pid_a;
+										if (vacc_rec == null) {
+											vacc_rec = new ArrayList<>();
+											vacc_rec.add(pid_a);
+											vaccine_record_map.put(pid_a, vacc_rec);
+										}
+
+										int boost_time = currentTime;
+										for (int b = 0; b < dose_pt; b++) {
+											boost_time = boost_time - (booster_range[0]
+													+ vaccine_rng.nextInt(booster_range[1] - booster_range[0]));
+											vacc_rec.add(1, boost_time);
+
+										}
+										vacc_today_all_groups.add(~pt, pid_a);
+										fill_index++;
+									}
 								}
 							}
-							vacc_today = vacc_rec_order_filtered.toArray(new Integer[0]);
-
 						}
-
-					}
-					if (num_vaccine[d] < vacc_today.length) {
-						vacc_today = util.ArrayUtilsRandomGenerator.randomSelect(vacc_today, num_vaccine[d],
-								vaccine_rng);
 					}
 					for (int pid : vacc_today) {
-
-						ArrayList<Integer> vacc_rec = vaccine_record_map.get(pid);
-
-						if (vacc_rec == null) {
-							// vacc_rec = {pid, dose_days...};
-							vacc_rec = new ArrayList<>();
-							vacc_rec.add(pid);
-							vaccine_record_map.put(pid, vacc_rec);
+						int pt;
+						// Add to vacc_today_all_group collection (if needed)
+						pt = Collections.binarySearch(vacc_today_all_groups, pid);
+						if (pt < 0) {
+							vacc_today_all_groups.add(~pt, pid);
 						}
-
-						vacc_rec.add(currentTime);
-
-						// Special case for filling backward
-						if (currentTime < vaccine_backward_fill && d > 0) {
-							int numExtra = d;
-							while (numExtra > 0) {
-								int booster_time = vaccine_record_map.get(pid).get(1);
-								int extra_time = booster_time - (booster_range[0]
-										+ vaccine_rng.nextInt((booster_range[1] - booster_range[0])));
-
-								vaccine_record_map.get(pid).add(1, extra_time);
-								numExtra--;
-							}
-						}
-						if (d < num_vaccine.length) {
-							int pt;
-							pt = Collections.binarySearch(dosage_candidate.get(d), pid);
+						// Remove non-Dose 1 candidates (as they will be move to different booster count
+						if (dose_pt > 0) {
+							pt = Collections.binarySearch(vaccine_candidate_by_booster_count.get(dose_pt), pid);
 							if (pt >= 0) {
-								dosage_candidate.get(d).remove(pt);
+								vaccine_candidate_by_booster_count.get(dose_pt).remove(pt);
 							}
-
-							int num_booster_chain = 1;
-
-							if (vacc_rec.size() > 2) {
-								int v_ck = vacc_rec.size() - 1;
-								int gapTime = vacc_rec.get(v_ck) - vacc_rec.get(v_ck - 1);
-								while (v_ck > 1 && booster_range[0] <= gapTime && gapTime < booster_range[1]) {
-									num_booster_chain++;
-									v_ck--;
-									gapTime = vacc_rec.get(v_ck) - vacc_rec.get(v_ck - 1);
-								}
-							}
-							num_booster_chain = Math.min(num_booster_chain, num_vaccine.length - 1);
-							pt = Collections.binarySearch(dosage_candidate.get(num_booster_chain), pid);
-							if (pt < 0) {
-								dosage_candidate.get(num_booster_chain).add(~pt, pid);
-							}
-
 						}
-					}
 
+					} // End of for (int pid : vacc_today) {
+				} // End of if (num_vaccine[dose_pt] > 0) {
+			} // End of for (int dose_pt = 0; dose_pt < num_vaccine.length; dose_pt++) {
+
+			for (int pid : vacc_today_all_groups) {
+				int pt;
+				ArrayList<Integer> vacc_rec = vaccine_record_map.get(pid);
+				if (vacc_rec == null) {
+					// vacc_rec = {pid, dose_days...};
+					vacc_rec = new ArrayList<>();
+					vacc_rec.add(pid);
+					vaccine_record_map.put(pid, vacc_rec);
+				}
+				vacc_rec.add(currentTime);
+				int num_continious_booster = getNumContinuousBooster(currentTime, vacc_rec);
+				num_continious_booster = Math.min(num_continious_booster, num_vaccine.length - 1);
+				pt = Collections.binarySearch(vaccine_candidate_by_booster_count.get(num_continious_booster), pid);
+				if (pt < 0) {
+					vaccine_candidate_by_booster_count.get(num_continious_booster).add(~pt, pid);
 				}
 			}
+
 		}
 
 		if (vaccine_record_map.size() > 0) {
@@ -237,13 +243,37 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 		return res;
 	}
 
+	private int getNumContinuousBooster(int propose_vaccination_time, ArrayList<Integer> vacc_rec) {
+		int[] booster_range = (int[]) vaccine_setting_global[VACCINE_SETTING_INDEX_BOOSTER_WINDOW];
+		int num_continious_booster = 0;
+		if (vacc_rec != null) {
+			if (vacc_rec.size() > 1) {
+				int v_ck = vacc_rec.size() - 1;
+				int last_dose_time = vacc_rec.get(v_ck);
+				if (last_dose_time > propose_vaccination_time - booster_range[1]) {
+					num_continious_booster = 1;
+					if (vacc_rec.size() > 2) {
+						int gapTime = vacc_rec.get(v_ck) - vacc_rec.get(v_ck - 1);
+						while (v_ck > 1 && booster_range[0] <= gapTime && gapTime < booster_range[1]) {
+							num_continious_booster++;
+							v_ck--;
+							gapTime = vacc_rec.get(v_ck) - vacc_rec.get(v_ck - 1);
+						}
+					}
+				}
+			}
+
+		}
+		return num_continious_booster;
+	}
+
 	public Runnable_ClusterModel_MPox(long cMap_seed, long sim_seed, int[] POP_COMPOSITION, ContactMap BASE_CONTACT_MAP,
 			int NUM_TIME_STEPS_PER_SNAP, int NUM_SNAP, File baseDir) {
 		super(cMap_seed, sim_seed, POP_COMPOSITION, BASE_CONTACT_MAP, NUM_TIME_STEPS_PER_SNAP, NUM_SNAP);
 
 		this.baseDir = baseDir;
-		File vaccine_coverage_preset = new File(baseDir, fName_vaccine_coverage);
-		if (vaccine_coverage_preset.exists()) {
+		File vaccine_coverage_post_outbreak = new File(baseDir, fName_vaccine_coverage);
+		if (vaccine_coverage_post_outbreak.exists()) {
 
 			vaccine_rng = new MersenneTwisterRandomGenerator(sim_seed);
 
@@ -251,7 +281,7 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 
 				// Set vaccine_start, decay rate and vaccine effect
 				String[] vacc_lines = util.Util_7Z_CSV_Entry_Extract_Callable
-						.extracted_lines_from_text(vaccine_coverage_preset);
+						.extracted_lines_from_text(vaccine_coverage_post_outbreak);
 				String[] header_line = vacc_lines[0].split(","); // Start_time.decay_rate_per_year, dose_eff_1,
 																	// dose_eff_2....,
 
@@ -274,10 +304,6 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 					String[] vaccine_ent = vacc_lines[line_pt].split(",");
 					int v_range = Integer.parseInt(vaccine_ent[0]);
 
-					if (vaccine_backward_fill < 0) {
-						vaccine_backward_fill = v_start + v_range;
-					}
-
 					for (int dose_count = 1; dose_count < vaccine_ent.length; dose_count++) {
 						int num_dose = Integer.parseInt(vaccine_ent[dose_count]);
 						while (num_dose > 0) {
@@ -292,9 +318,7 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 						}
 
 					}
-
 					v_start += v_range;
-
 				}
 
 			} catch (IOException e) {
@@ -400,7 +424,7 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 		if (!vaccine_pop_stats.isEmpty()) {
 			try {
 				PrintWriter pWri = new PrintWriter(new File(baseDir, filePrefix + fName_vaccine_stat));
-				pWri.println("Time,Ever_Vaccinated,In_Booster_Range,Transmission_Effected");
+				pWri.println("Time,Ever_Vaccinated,In_Booster_Window,Transmission_Effected");
 				Integer[] times = vaccine_pop_stats.keySet().toArray(new Integer[0]);
 				Arrays.sort(times);
 				for (Integer t : times) {
