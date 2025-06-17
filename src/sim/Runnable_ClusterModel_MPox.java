@@ -5,11 +5,14 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map.Entry;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import org.apache.commons.compress.utils.Lists;
 
 import person.AbstractIndividualInterface;
 import random.MersenneTwisterRandomGenerator;
@@ -55,6 +58,9 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 	private HashMap<Integer, int[]> vaccine_schedule = new HashMap<>();
 	// K = day, V = Number vaccination in terms of dosage
 
+	private ArrayList<String[]> vaccine_pre_outbreak_coverage = new ArrayList<String[]>();
+	private int time_outbreak_start = -1;
+
 	private HashMap<Integer, int[]> vaccine_pop_stats = new HashMap<>();
 	// K = day, V = int[]{num_ever_vaccinated, num_within_booster_range,
 	// num_vaccine_effected_transmission};
@@ -70,6 +76,84 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 
 		// Update vaccination
 		int[] booster_range = (int[]) vaccine_setting_global[VACCINE_SETTING_INDEX_BOOSTER_WINDOW];
+
+		// Pre-outbreak vaccination
+
+		if (time_outbreak_start == currentTime && vaccine_pre_outbreak_coverage.size() > 0) {
+			int v_start = time_outbreak_start;
+			Integer[] pid_all = cMap.vertexSet().toArray(new Integer[0]);
+			Arrays.sort(pid_all);
+
+			Integer[] pid_vaccinated_last = new Integer[0];
+			for (int i = 0; i < vaccine_pre_outbreak_coverage.size(); i++) {
+				String[] ent = vaccine_pre_outbreak_coverage.get(i);
+				v_start += Integer.parseInt(ent[0]);
+			}
+			Integer[][] pid_vacc = new Integer[2][0];
+			for (int i = 0; i < vaccine_pre_outbreak_coverage.size(); i++) {
+				String[] ent = vaccine_pre_outbreak_coverage.get(i);
+				Integer time_range = -Integer.parseInt(ent[0]);
+				ArrayList<Integer> d1_candidate = new ArrayList<Integer>(Arrays.asList(pid_all));
+
+				for (Integer p : pid_vaccinated_last) {
+					int pt = Collections.binarySearch(d1_candidate, p);
+					if (pt >= 0) {
+						d1_candidate.remove(pt);
+					}
+				}
+
+				// First dose
+
+				int num_vacc_d1 = Integer.parseInt(ent[1]);
+				pid_vacc[0] = util.ArrayUtilsRandomGenerator.randomSelect(d1_candidate.toArray(new Integer[0]),
+						Math.min(d1_candidate.size(), num_vacc_d1), vaccine_rng);
+
+				// Second dose +
+				int num_vacc_d2 = 0;
+				for (int dosePt = 2; dosePt < ent.length; dosePt++) {
+					num_vacc_d2 += Integer.parseInt(ent[dosePt]);
+				}
+
+				if (num_vacc_d2 > 0) {
+					pid_vacc[1] = util.ArrayUtilsRandomGenerator.randomSelect(pid_vaccinated_last,
+							Math.min(pid_vaccinated_last.length, num_vacc_d2), vaccine_rng);
+				} else {
+					pid_vacc[1] = new Integer[0];
+				}
+
+				for (Integer[] vacc : pid_vacc) {
+					for (int pid : vacc) {
+						ArrayList<Integer> vacc_rec = vaccine_record_map.get(pid);
+						if (vacc_rec == null) {
+							vacc_rec = new ArrayList<>();
+							vacc_rec.add(pid);
+							vaccine_record_map.put(pid, vacc_rec);
+						}
+						vacc_rec.add(v_start + vaccine_rng.nextInt(time_range));
+					}
+				}
+				pid_vaccinated_last = pid_vacc[0];
+				v_start += time_range;
+			}
+
+			int dose_count = vaccine_schedule.values().iterator().next().length;
+
+			for (int i = 0; i < dose_count; i++) {
+				vaccine_candidate_by_booster_count.put(i, new ArrayList<>());
+			}
+
+			for (Integer[] vacc : pid_vacc) {
+				for (int pid : vacc) {
+					int num_continious_booster = getNumContinuousBooster(currentTime, vaccine_record_map.get(pid));
+					ArrayList<Integer> dosage_ent = vaccine_candidate_by_booster_count.get(num_continious_booster);
+					int pt = Collections.binarySearch(dosage_ent, pid);
+					if (pt < 0) {
+						dosage_ent.add(~pt, pid);
+					}
+				}
+			}
+		} // End of if (time_outbreak_start == currentTime ...
+
 		int[] num_vaccine = vaccine_schedule.remove(currentTime);
 		if (num_vaccine != null) {
 			ArrayList<Integer> in_partnership = new ArrayList<>();
@@ -88,10 +172,6 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 			// Clear the Dose 1 candidate
 			if (vaccine_candidate_by_booster_count.size() > 0) {
 				vaccine_candidate_by_booster_count.get(0).clear();
-			} else {
-				for (int i = 0; i < num_vaccine.length; i++) {
-					vaccine_candidate_by_booster_count.put(i, new ArrayList<>());
-				}
 			}
 			// Remove all potential booster that is already expired.
 			for (int i = 1; i < vaccine_candidate_by_booster_count.size(); i++) {
@@ -151,11 +231,10 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 						while (fill_index < vacc_today.length) {
 							Integer pid_a = all_pids[vaccine_rng.nextInt(all_pids.length)];
 							ArrayList<Integer> vacc_rec = vaccine_record_map.get(pid_a);
-							
+
 							// Make sure the person is not a booster candidate
 							if (getNumContinuousBooster(currentTime, vacc_rec) == 0) {
-								
-								
+
 								// Make sure chosen not are not already vaccinated today
 								pt = Arrays.binarySearch(vacc_today, 0, fill_index, pid_a);
 								if (pt < 0) {
@@ -292,6 +371,8 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 				vaccine_setting_global[VACCINE_SETTING_INDEX_DECAY_RATE] = Math.log(1 - rate)
 						/ AbstractIndividualInterface.ONE_YEAR_INT;
 
+				time_outbreak_start = v_start;
+
 				double[] vacc_eff = new double[header_line.length - 1];
 				for (int d = 0; d < vacc_eff.length; d++) {
 					vacc_eff[d] = Double.parseDouble(header_line[d + 1]);
@@ -304,21 +385,26 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 					String[] vaccine_ent = vacc_lines[line_pt].split(",");
 					int v_range = Integer.parseInt(vaccine_ent[0]);
 
-					for (int dose_count = 1; dose_count < vaccine_ent.length; dose_count++) {
-						int num_dose = Integer.parseInt(vaccine_ent[dose_count]);
-						while (num_dose > 0) {
-							int dose_time = v_start + vaccine_rng.nextInt(v_range);
-							int[] num_vaccine = vaccine_schedule.get(dose_time);
-							if (num_vaccine == null) {
-								num_vaccine = new int[vaccine_ent.length - 1];
-								vaccine_schedule.put(dose_time, num_vaccine);
-							}
-							num_vaccine[dose_count - 1]++;
-							num_dose--;
-						}
+					if (v_range > 0) {
 
+						for (int dose_count = 1; dose_count < vaccine_ent.length; dose_count++) {
+							int num_dose = Integer.parseInt(vaccine_ent[dose_count]);
+							while (num_dose > 0) {
+								int dose_time = v_start + vaccine_rng.nextInt(v_range);
+								int[] num_vaccine = vaccine_schedule.get(dose_time);
+								if (num_vaccine == null) {
+									num_vaccine = new int[vaccine_ent.length - 1];
+									vaccine_schedule.put(dose_time, num_vaccine);
+								}
+								num_vaccine[dose_count - 1]++;
+								num_dose--;
+							}
+
+						}
+						v_start += v_range;
+					} else {
+						vaccine_pre_outbreak_coverage.add(vaccine_ent);
 					}
-					v_start += v_range;
 				}
 
 			} catch (IOException e) {
