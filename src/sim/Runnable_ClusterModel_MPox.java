@@ -12,6 +12,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import person.AbstractIndividualInterface;
+import population.Population_Bridging;
 import random.MersenneTwisterRandomGenerator;
 import random.RandomGenerator;
 import relationship.ContactMap;
@@ -65,6 +66,77 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 	private static final int VACC_STAT_IN_BOOSTER_RANGE = VACC_STAT_EVER_VACC + 1;
 	private static final int VACC_STAT_TRANSMISSON_EFFCTED = VACC_STAT_IN_BOOSTER_RANGE + 1;
 	private static final int LENGTH_VACC_STAT = VACC_STAT_TRANSMISSON_EFFCTED + 1;
+
+	public Runnable_ClusterModel_MPox(long cMap_seed, long sim_seed, int[] POP_COMPOSITION, ContactMap BASE_CONTACT_MAP,
+			int NUM_TIME_STEPS_PER_SNAP, int NUM_SNAP, File baseDir) {
+		super(cMap_seed, sim_seed, POP_COMPOSITION, BASE_CONTACT_MAP, NUM_TIME_STEPS_PER_SNAP, NUM_SNAP);
+
+		this.baseDir = baseDir;
+		File vaccine_coverage_post_outbreak = new File(baseDir, fName_vaccine_coverage);
+		if (vaccine_coverage_post_outbreak.exists()) {
+
+			vaccine_rng = new MersenneTwisterRandomGenerator(sim_seed);
+
+			try {
+
+				// Set vaccine_start, decay rate and vaccine effect
+				String[] vacc_lines = util.Util_7Z_CSV_Entry_Extract_Callable
+						.extracted_lines_from_text(vaccine_coverage_post_outbreak);
+				String[] header_line = vacc_lines[0].split(","); // Start_time.decay_rate_per_year, dose_eff_1,
+																	// dose_eff_2....,
+
+				double first_ent = Double.parseDouble(header_line[0]);
+
+				int v_start = (int) first_ent;
+				double rate = first_ent - v_start;
+				vaccine_setting_global[VACCINE_SETTING_INDEX_DECAY_RATE] = Math.log(1 - rate)
+						/ AbstractIndividualInterface.ONE_YEAR_INT;
+
+				time_outbreak_start = v_start;
+
+				double[] vacc_eff = new double[header_line.length - 1];
+				for (int d = 0; d < vacc_eff.length; d++) {
+					vacc_eff[d] = Double.parseDouble(header_line[d + 1]);
+				}
+				vaccine_setting_global[VACCINE_SETTING_INDEX_INIT_VACCINE_EFFECT] = vacc_eff;
+
+				// Set daily vaccine schedule
+
+				for (int line_pt = 1; line_pt < vacc_lines.length; line_pt++) {
+					String[] vaccine_ent = vacc_lines[line_pt].split(",");
+					int v_range = Integer.parseInt(vaccine_ent[0]);
+
+					if (v_range > 0) {
+
+						for (int dose_count = 1; dose_count < vaccine_ent.length; dose_count++) {
+							int num_dose = Integer.parseInt(vaccine_ent[dose_count]);
+							while (num_dose > 0) {
+								int dose_time = v_start + vaccine_rng.nextInt(v_range);
+								int[] num_vaccine = vaccine_schedule.get(dose_time);
+								if (num_vaccine == null) {
+									num_vaccine = new int[vaccine_ent.length - 1];
+									vaccine_schedule.put(dose_time, num_vaccine);
+								}
+								num_vaccine[dose_count - 1]++;
+								num_dose--;
+							}
+
+						}
+						v_start += v_range;
+					} else {
+						vaccine_pre_outbreak_coverage.add(vaccine_ent);
+					}
+				}
+
+			} catch (IOException e) {
+				e.printStackTrace(System.err);
+
+			}
+
+		}
+
+	}	
+	
 
 	@Override
 	protected int[] updateCMap(ContactMap cMap, int currentTime, Integer[][] edges_array, int edges_array_pt,
@@ -341,76 +413,6 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 
 		}
 		return num_continious_booster;
-	}
-
-	public Runnable_ClusterModel_MPox(long cMap_seed, long sim_seed, int[] POP_COMPOSITION, ContactMap BASE_CONTACT_MAP,
-			int NUM_TIME_STEPS_PER_SNAP, int NUM_SNAP, File baseDir) {
-		super(cMap_seed, sim_seed, POP_COMPOSITION, BASE_CONTACT_MAP, NUM_TIME_STEPS_PER_SNAP, NUM_SNAP);
-
-		this.baseDir = baseDir;
-		File vaccine_coverage_post_outbreak = new File(baseDir, fName_vaccine_coverage);
-		if (vaccine_coverage_post_outbreak.exists()) {
-
-			vaccine_rng = new MersenneTwisterRandomGenerator(sim_seed);
-
-			try {
-
-				// Set vaccine_start, decay rate and vaccine effect
-				String[] vacc_lines = util.Util_7Z_CSV_Entry_Extract_Callable
-						.extracted_lines_from_text(vaccine_coverage_post_outbreak);
-				String[] header_line = vacc_lines[0].split(","); // Start_time.decay_rate_per_year, dose_eff_1,
-																	// dose_eff_2....,
-
-				double first_ent = Double.parseDouble(header_line[0]);
-
-				int v_start = (int) first_ent;
-				double rate = first_ent - v_start;
-				vaccine_setting_global[VACCINE_SETTING_INDEX_DECAY_RATE] = Math.log(1 - rate)
-						/ AbstractIndividualInterface.ONE_YEAR_INT;
-
-				time_outbreak_start = v_start;
-
-				double[] vacc_eff = new double[header_line.length - 1];
-				for (int d = 0; d < vacc_eff.length; d++) {
-					vacc_eff[d] = Double.parseDouble(header_line[d + 1]);
-				}
-				vaccine_setting_global[VACCINE_SETTING_INDEX_INIT_VACCINE_EFFECT] = vacc_eff;
-
-				// Set daily vaccine schedule
-
-				for (int line_pt = 1; line_pt < vacc_lines.length; line_pt++) {
-					String[] vaccine_ent = vacc_lines[line_pt].split(",");
-					int v_range = Integer.parseInt(vaccine_ent[0]);
-
-					if (v_range > 0) {
-
-						for (int dose_count = 1; dose_count < vaccine_ent.length; dose_count++) {
-							int num_dose = Integer.parseInt(vaccine_ent[dose_count]);
-							while (num_dose > 0) {
-								int dose_time = v_start + vaccine_rng.nextInt(v_range);
-								int[] num_vaccine = vaccine_schedule.get(dose_time);
-								if (num_vaccine == null) {
-									num_vaccine = new int[vaccine_ent.length - 1];
-									vaccine_schedule.put(dose_time, num_vaccine);
-								}
-								num_vaccine[dose_count - 1]++;
-								num_dose--;
-							}
-
-						}
-						v_start += v_range;
-					} else {
-						vaccine_pre_outbreak_coverage.add(vaccine_ent);
-					}
-				}
-
-			} catch (IOException e) {
-				e.printStackTrace(System.err);
-
-			}
-
-		}
-
 	}
 
 	@Override
