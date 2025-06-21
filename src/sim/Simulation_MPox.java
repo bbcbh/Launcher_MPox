@@ -13,6 +13,11 @@ import relationship.ContactMap;
 import util.PropValUtils;
 
 public class Simulation_MPox extends Simulation_ClusterModelTransmission {
+	boolean load_full_map;
+
+	public Simulation_MPox(boolean load_full_map) {
+		this.load_full_map = load_full_map;
+	}
 
 	public static void main(String[] args) throws IOException, InterruptedException {
 		final String USAGE_INFO = String.format(
@@ -22,7 +27,14 @@ public class Simulation_MPox extends Simulation_ClusterModelTransmission {
 			System.out.println(USAGE_INFO);
 			System.exit(0);
 		} else {
-			Simulation_ClusterModelTransmission.launch(args, new Simulation_MPox());
+			boolean load_full_map = true;
+			for (String arg : args) {
+				if ("-partialLoadMap".equals(arg)) {
+					load_full_map = false;
+				}
+			}
+
+			Simulation_ClusterModelTransmission.launch(args, new Simulation_MPox(load_full_map));
 
 		}
 	}
@@ -30,15 +42,20 @@ public class Simulation_MPox extends Simulation_ClusterModelTransmission {
 	@Override
 	protected void loadAllContactMap(File[] preGenClusterMap, HashMap<Long, File[]> cmap_file_collection,
 			HashMap<Long, ContactMap> cMap_Map) throws FileNotFoundException, IOException, InterruptedException {
-		for (File element : preGenClusterMap) {
-			System.out.printf("Loading on ContactMap files located at %s.\n",
-					element.getAbsolutePath());
-			Matcher m = Pattern.compile(REGEX_ALL_CMAP).matcher(element.getName());
-			m.matches();
-			long cMap_seed = Long.parseLong(m.group(1));			
-			cMap_Map.put(cMap_seed, null);
-			cmap_file_collection.put(cMap_seed, new File[] { element });
 
+		if (load_full_map) {
+			super.loadAllContactMap(preGenClusterMap, cmap_file_collection, cMap_Map);
+
+		} else {
+			for (File element : preGenClusterMap) {
+				System.out.printf("Loading on ContactMap files located at %s.\n", element.getAbsolutePath());
+				Matcher m = Pattern.compile(REGEX_ALL_CMAP).matcher(element.getName());
+				m.matches();
+				long cMap_seed = Long.parseLong(m.group(1));
+				cMap_Map.put(cMap_seed, null);
+				cmap_file_collection.put(cMap_seed, new File[] { element });
+
+			}
 		}
 	}
 
@@ -88,7 +105,6 @@ public class Simulation_MPox extends Simulation_ClusterModelTransmission {
 //		zipSelectedOutputs(baseDir, zip_file_name_mod, pattern_include_file, exportSkipBackup);
 	}
 
-
 	@Override
 	protected void finalise_simulations() throws IOException, FileNotFoundException {
 
@@ -127,7 +143,6 @@ public class Simulation_MPox extends Simulation_ClusterModelTransmission {
 //			}
 //
 //		}
-
 
 	}
 
