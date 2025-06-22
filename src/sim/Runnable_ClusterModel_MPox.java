@@ -20,6 +20,7 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 
 	public static final String trans_offset_key = "TRANSOFFSET";
 	public static final Pattern sim_switch_replace = Pattern.compile("SIM_SWITCH_REPLACE_(\\d+)");
+	public static final Pattern vacc_prop_replace = Pattern.compile("VACC_PROP_(\\d+)");
 
 	private static int VACCINE_SETTING_INDEX_DURATION = 0;
 	private static int VACCINE_SETTING_INDEX_DECAY_RATE = VACCINE_SETTING_INDEX_DURATION + 1;
@@ -134,8 +135,7 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 
 		}
 
-	}	
-	
+	}
 
 	@Override
 	protected int[] updateCMap(ContactMap cMap, int currentTime, Integer[][] edges_array, int edges_array_pt,
@@ -206,7 +206,7 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 
 			int dose_count = vaccine_schedule.values().iterator().next().length;
 
-			for (int i = 0; i < dose_count; i++) {
+			for (int i = 0; i < 5; i++) {
 				vaccine_candidate_by_booster_count.put(i, new ArrayList<>());
 			}
 
@@ -214,10 +214,12 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 				for (int pid : vacc) {
 					int num_continious_booster = getNumContinuousBooster(currentTime, vaccine_record_map.get(pid));
 					ArrayList<Integer> dosage_ent = vaccine_candidate_by_booster_count.get(num_continious_booster);
+
 					int pt = Collections.binarySearch(dosage_ent, pid);
 					if (pt < 0) {
 						dosage_ent.add(~pt, pid);
 					}
+
 				}
 			}
 		} // End of if (time_outbreak_start == currentTime ...
@@ -550,6 +552,20 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 				Integer org_key = key_arr[switch_replace_index];
 				Integer new_key = (int) point[i];
 				propSwitch_map.put(new_key, propSwitch_map.remove(org_key));
+			} else if (vacc_prop_replace.matcher(parameter_settings[i]).matches()) {
+				Matcher m = vacc_prop_replace.matcher(parameter_settings[i]);
+				m.find();
+				Integer vacc_prop_index = Integer.parseInt(m.group(1));
+				switch (vacc_prop_index) {
+				case 0:
+					vaccine_setting_global[VACCINE_SETTING_INDEX_DECAY_RATE] = Math.log(1 - point[i])
+							/ AbstractIndividualInterface.ONE_YEAR_INT;
+					break;
+				default:
+					((double[]) vaccine_setting_global[VACCINE_SETTING_INDEX_INIT_VACCINE_EFFECT])[vacc_prop_index
+							- 1] = point[i];
+
+				}
 
 			} else {
 				parameter_settings_filtered.add(parameter_settings[i]);
