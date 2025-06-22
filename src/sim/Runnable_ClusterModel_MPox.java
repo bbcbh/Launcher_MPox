@@ -30,6 +30,8 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 	private static final String fName_vaccine_coverage = "Vaccine_Coverage.csv";
 	private static final String fName_vaccine_hist = "Vaccine_Hist.csv";
 	private static final String fName_vaccine_stat = "Vaccine_Stat.csv";
+	
+	private static final int MAX_DOSE_COUNT = 4;
 
 	private Object[] vaccine_setting_global = new Object[] {
 			// Duration of 5 years (US CDC)
@@ -204,9 +206,9 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 				v_start += time_range;
 			}
 
-			int dose_count = vaccine_schedule.values().iterator().next().length;
+			//int dose_count = vaccine_schedule.values().iterator().next().length;
 
-			for (int i = 0; i < 5; i++) {
+			for (int i = 0; i < (MAX_DOSE_COUNT+1); i++) {
 				vaccine_candidate_by_booster_count.put(i, new ArrayList<>());
 			}
 
