@@ -12,6 +12,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import person.AbstractIndividualInterface;
+import population.Population_Bridging;
 import random.MersenneTwisterRandomGenerator;
 import random.RandomGenerator;
 import relationship.ContactMap;
@@ -19,7 +20,9 @@ import relationship.ContactMap;
 public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmission {
 
 	public static final String trans_offset_key = "TRANSOFFSET";
-	public static final Pattern sim_switch_replace = Pattern.compile("SIM_SWITCH_REPLACE_(\\d+)");
+	public static final Pattern sim_switch_time_replace = Pattern.compile("SIM_SWITCH_TIME_REPLACE_(\\d+)");
+	public static final Pattern sim_switch_entry_replace = Pattern
+			.compile("SIM_SWITCH_ENTRY_REPLACE_(\\d+)_(-{0,1}\\d+)_(\\d+)_(\\d+)"); // Switch time, index, array_setting
 	public static final Pattern vacc_prop_replace = Pattern.compile("VACC_PROP_(\\d+)");
 
 	private static int VACCINE_SETTING_INDEX_DURATION = 0;
@@ -30,7 +33,7 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 	private static final String fName_vaccine_coverage = "Vaccine_Coverage.csv";
 	private static final String fName_vaccine_hist = "Vaccine_Hist.csv";
 	private static final String fName_vaccine_stat = "Vaccine_Stat.csv";
-	
+
 	private static final int MAX_DOSE_COUNT = 4;
 
 	private Object[] vaccine_setting_global = new Object[] {
@@ -68,6 +71,8 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 	private static final int VACC_STAT_IN_BOOSTER_RANGE = VACC_STAT_EVER_VACC + 1;
 	private static final int VACC_STAT_TRANSMISSON_EFFCTED = VACC_STAT_IN_BOOSTER_RANGE + 1;
 	private static final int LENGTH_VACC_STAT = VACC_STAT_TRANSMISSON_EFFCTED + 1;
+
+	private boolean useLinearRate = false;
 
 	public Runnable_ClusterModel_MPox(long cMap_seed, long sim_seed, int[] POP_COMPOSITION, ContactMap BASE_CONTACT_MAP,
 			int NUM_TIME_STEPS_PER_SNAP, int NUM_SNAP, File baseDir) {
@@ -163,6 +168,7 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 			for (int i = 0; i < vaccine_pre_outbreak_coverage.size(); i++) {
 				String[] ent = vaccine_pre_outbreak_coverage.get(i);
 				Integer time_range = -Integer.parseInt(ent[0]);
+
 				ArrayList<Integer> d1_candidate = new ArrayList<Integer>(Arrays.asList(pid_all));
 
 				for (Integer p : pid_vaccinated_last) {
@@ -173,7 +179,6 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 				}
 
 				// First dose
-
 				int num_vacc_d1 = Integer.parseInt(ent[1]);
 				pid_vacc[0] = util.ArrayUtilsRandomGenerator.randomSelect(d1_candidate.toArray(new Integer[0]),
 						Math.min(d1_candidate.size(), num_vacc_d1), vaccine_rng);
@@ -206,9 +211,9 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 				v_start += time_range;
 			}
 
-			//int dose_count = vaccine_schedule.values().iterator().next().length;
+			// int dose_count = vaccine_schedule.values().iterator().next().length;
 
-			for (int i = 0; i < (MAX_DOSE_COUNT+1); i++) {
+			for (int i = 0; i < (MAX_DOSE_COUNT + 1); i++) {
 				vaccine_candidate_by_booster_count.put(i, new ArrayList<>());
 			}
 
@@ -267,6 +272,43 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 					dosage_ent.add(~pt, pid);
 				}
 			}
+
+			ArrayList<Integer> first_dose_list = vaccine_candidate_by_booster_count.get(0);
+
+			// Further restrictions
+
+//			first_dose_list = new ArrayList<>();
+//			for (Integer first_dose_pid : vaccine_candidate_by_booster_count.get(0)) {						
+//				boolean addList = !false;		
+//				Set<Integer[]> edge_set = cMap.edgesOf(first_dose_pid);		
+//				for (Integer[] e : edge_set) {					
+//					addList |= e[CONTACT_MAP_EDGE_DURATION] <= 1;
+//					addList |= edge_set.size() > 1;
+//					int partner = e[CONTACT_MAP_EDGE_P1].equals(first_dose_pid) ? e[CONTACT_MAP_EDGE_P2]
+//							: e[CONTACT_MAP_EDGE_P1];
+//					addList |= Collections.binarySearch(currently_infectious[1], partner) >= 0;			
+//				}	
+//				if (addList) {
+//					first_dose_list.add(first_dose_pid);
+//				}
+//			}
+
+			ArrayList<Integer> org_list = vaccine_candidate_by_booster_count.get(0);
+
+//			if(first_dose_list.size() < num_vaccine[0]) {
+//				System.out.printf("%d: %d extra vaccine candidate to be added.\n", currentTime, 
+//						num_vaccine[0]- first_dose_list.size());
+//			}
+
+			while (first_dose_list.size() < num_vaccine[0]) {
+				int r_pid = org_list.get(vaccine_rng.nextInt(org_list.size()));
+				int pt = Collections.binarySearch(first_dose_list, r_pid);
+				if (pt < 0) {
+					first_dose_list.add(~pt, r_pid);
+				}
+			}
+
+			vaccine_candidate_by_booster_count.put(0, first_dose_list);
 
 			Collections.sort(vaccine_candidate_by_booster_count.get(0));
 
@@ -460,8 +502,17 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 							&& currentTime < vac_rec.get(last_dose_at) + vaccine_dur) {
 						// Assume vaccine last for 5 years
 						double vaccine_effect_init = vaccine_eff[Math.min(numDose - 1, vaccine_eff.length - 1)];
-						double vacc_eff = vaccine_effect_init
-								* Math.exp(vaccine_wane_rate * (currentTime - vac_rec.get(last_dose_at)));
+						double vacc_eff;
+
+						if (!useLinearRate) {
+							vacc_eff = vaccine_effect_init
+									* Math.exp(vaccine_wane_rate * (currentTime - vac_rec.get(last_dose_at)));
+						} else {
+							// Linear rate
+							vacc_eff = vaccine_effect_init
+									* (1 + vaccine_wane_rate * (currentTime - vac_rec.get(last_dose_at))
+											/ ((double) AbstractIndividualInterface.ONE_YEAR_INT));
+						}
 						transProbAdj *= (1 - vacc_eff);
 
 						// Update vaccined_protected_tranmission
@@ -477,13 +528,73 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 		return transProbAdj;
 	}
 
+	@SuppressWarnings("unchecked")
 	@Override
 	protected void postSimulation(Object[] simulation_store) {
-		super.postSimulation(simulation_store);
+		//super.postSimulation(simulation_store);
+		
+		HashMap<Integer, int[]> count_map_by_person;
+		StringBuilder str = null;
 
 		// Print vaccine stat
 		String filePrefix = this.getRunnableId() == null ? String.format("[%d,%d]", this.cMAP_SEED, this.sIM_SEED)
 				: this.getRunnableId();
+		
+		try {
+			// Index case(s)
+			if (simulation_store != null && simulation_store.length > 0) {				
+				StringBuilder seedInfectedStr = new StringBuilder();
+				int[][] seedInfected = (int[][]) simulation_store[0];
+				for (int site = 0; site < seedInfected.length; site++) {
+					for (int i = 0; i < seedInfected[site].length; i++) {
+						seedInfectedStr.append(site);
+						seedInfectedStr.append(',');
+						seedInfectedStr.append(seedInfected[site][i]);
+						seedInfectedStr.append('\n');
+					}
+				}
+
+				File printFile;
+				PrintWriter expWri;
+				printFile = new File(baseDir,
+						String.format(filePrefix + Simulation_ClusterModelTransmission.FILENAME_INDEX_CASE_LIST,
+								this.cMAP_SEED, this.sIM_SEED));
+				try {
+					expWri = new PrintWriter(printFile);
+					expWri.println(seedInfectedStr.toString());
+					expWri.close();
+				} catch (IOException ex) {
+					ex.printStackTrace(System.err);
+					System.out.println("Index case:");
+					System.out.println(seedInfectedStr.toString());
+
+				}
+			}
+			
+			if ((simSetting & 1 << Simulation_ClusterModelTransmission.SIM_SETTING_KEY_GEN_INCIDENCE_FILE) != 0) {
+				PrintWriter pWri;				
+				count_map_by_person = (HashMap<Integer, int[]>) sim_output.get(SIM_OUTPUT_CUMUL_INCIDENCE_BY_PERSON);
+				str = printCountMap(count_map_by_person, Population_Bridging.LENGTH_GENDER, "Gender_%d");
+				pWri = new PrintWriter(new File(baseDir,
+						String.format(filePrefix + Simulation_ClusterModelTransmission.FILENAME_CUMUL_INCIDENCE_PERSON,
+								cMAP_SEED, sIM_SEED)));
+				pWri.println(str.toString());
+				pWri.close();				
+			}						
+			
+			
+		}catch (Exception e) {
+			e.printStackTrace(System.err);
+			if (str != null) {
+				System.err.println("Outcome so far");
+				System.err.println(str.toString());
+			}
+
+		}
+
+		
+		
+		
 
 		if (!vaccine_record_map.isEmpty()) {
 			try {
@@ -542,26 +653,43 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 		for (int i = 0; i < parameter_settings.length; i++) {
 			if (trans_offset_key.equals(parameter_settings[i])) {
 				trans_offset = (int) point[i];
-			} else if (sim_switch_replace.matcher(parameter_settings[i]).matches()) {
-				// SIM_SWITCH_REPLACE_(\\d+)
-				Matcher m = sim_switch_replace.matcher(parameter_settings[i]);
+			} else if (sim_switch_time_replace.matcher(parameter_settings[i]).matches()) {
+				// SIM_SWITCH_TIME_REPLACE_(\\d+)
+				Matcher m = sim_switch_time_replace.matcher(parameter_settings[i]);
 				m.find();
 				Integer switch_replace_index = Integer.parseInt(m.group(1));
-
 				Integer[] key_arr = propSwitch_map.keySet().toArray(new Integer[0]);
 				Arrays.sort(key_arr);
 
 				Integer org_key = key_arr[switch_replace_index];
 				Integer new_key = (int) point[i];
 				propSwitch_map.put(new_key, propSwitch_map.remove(org_key));
+			} else if (sim_switch_entry_replace.matcher(parameter_settings[i]).matches()) {
+				Matcher m = sim_switch_entry_replace.matcher(parameter_settings[i]);
+				m.find();						
+				Integer[] key_arr = propSwitch_map.keySet().toArray(new Integer[0]);
+				Arrays.sort(key_arr);				
+				Integer sel_key = key_arr[Integer.parseInt(m.group(1))];
+				Integer type_key = Integer.parseInt(m.group(2));
+				String ent = propSwitch_map.get(sel_key).remove(type_key);							
+				float[][] entVal  = (float[][]) util.PropValUtils.propStrToObject(ent, float[][].class);								
+				entVal[Integer.parseInt(m.group(3))][Integer.parseInt(m.group(4))] = (float) point[i];				
+				propSwitch_map.get(sel_key).put(type_key, util.PropValUtils.objectToPropStr(entVal, float[][].class));			
+
 			} else if (vacc_prop_replace.matcher(parameter_settings[i]).matches()) {
 				Matcher m = vacc_prop_replace.matcher(parameter_settings[i]);
 				m.find();
 				Integer vacc_prop_index = Integer.parseInt(m.group(1));
 				switch (vacc_prop_index) {
 				case 0:
-					vaccine_setting_global[VACCINE_SETTING_INDEX_DECAY_RATE] = Math.log(1 - point[i])
-							/ AbstractIndividualInterface.ONE_YEAR_INT;
+					if (point[i] >= 0) {
+						vaccine_setting_global[VACCINE_SETTING_INDEX_DECAY_RATE] = Math.log(1 - point[i])
+								/ AbstractIndividualInterface.ONE_YEAR_INT;
+					} else {
+						useLinearRate = true;
+						// Linear rate
+						vaccine_setting_global[VACCINE_SETTING_INDEX_DECAY_RATE] = point[i];
+					}
 					break;
 				default:
 					((double[]) vaccine_setting_global[VACCINE_SETTING_INDEX_INIT_VACCINE_EFFECT])[vacc_prop_index
