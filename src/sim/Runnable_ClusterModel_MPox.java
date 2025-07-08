@@ -74,6 +74,11 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 
 	private boolean useLinearRate = false;
 
+	private int[] behavioral_switch_setting = new int[] { 960, 180 }; // default switch when incidence hit, switch
+																		// duration
+	private int BEHAV_SWITCH_SETTING_INCIDENCE_THESHOLD = 0;
+	private int BEHAV_SWITCH_SETTING_DURAION = BEHAV_SWITCH_SETTING_INCIDENCE_THESHOLD + 1;
+
 	public Runnable_ClusterModel_MPox(long cMap_seed, long sim_seed, int[] POP_COMPOSITION, ContactMap BASE_CONTACT_MAP,
 			int NUM_TIME_STEPS_PER_SNAP, int NUM_SNAP, File baseDir) {
 		super(cMap_seed, sim_seed, POP_COMPOSITION, BASE_CONTACT_MAP, NUM_TIME_STEPS_PER_SNAP, NUM_SNAP);
@@ -531,18 +536,18 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 	@SuppressWarnings("unchecked")
 	@Override
 	protected void postSimulation(Object[] simulation_store) {
-		//super.postSimulation(simulation_store);
-		
+		// super.postSimulation(simulation_store);
+
 		HashMap<Integer, int[]> count_map_by_person;
 		StringBuilder str = null;
 
 		// Print vaccine stat
 		String filePrefix = this.getRunnableId() == null ? String.format("[%d,%d]", this.cMAP_SEED, this.sIM_SEED)
 				: this.getRunnableId();
-		
+
 		try {
 			// Index case(s)
-			if (simulation_store != null && simulation_store.length > 0) {				
+			if (simulation_store != null && simulation_store.length > 0) {
 				StringBuilder seedInfectedStr = new StringBuilder();
 				int[][] seedInfected = (int[][]) simulation_store[0];
 				for (int site = 0; site < seedInfected.length; site++) {
@@ -570,20 +575,19 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 
 				}
 			}
-			
+
 			if ((simSetting & 1 << Simulation_ClusterModelTransmission.SIM_SETTING_KEY_GEN_INCIDENCE_FILE) != 0) {
-				PrintWriter pWri;				
+				PrintWriter pWri;
 				count_map_by_person = (HashMap<Integer, int[]>) sim_output.get(SIM_OUTPUT_CUMUL_INCIDENCE_BY_PERSON);
 				str = printCountMap(count_map_by_person, Population_Bridging.LENGTH_GENDER, "Gender_%d");
 				pWri = new PrintWriter(new File(baseDir,
 						String.format(filePrefix + Simulation_ClusterModelTransmission.FILENAME_CUMUL_INCIDENCE_PERSON,
 								cMAP_SEED, sIM_SEED)));
 				pWri.println(str.toString());
-				pWri.close();				
-			}						
-			
-			
-		}catch (Exception e) {
+				pWri.close();
+			}
+
+		} catch (Exception e) {
 			e.printStackTrace(System.err);
 			if (str != null) {
 				System.err.println("Outcome so far");
@@ -591,10 +595,6 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 			}
 
 		}
-
-		
-		
-		
 
 		if (!vaccine_record_map.isEmpty()) {
 			try {
@@ -644,6 +644,33 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 
 	}
 
+	@SuppressWarnings("unchecked")
+	@Override
+	protected void postTimeStep(int currentTime) {
+		super.postTimeStep(currentTime);
+
+		if (behavioral_switch_setting[BEHAV_SWITCH_SETTING_INCIDENCE_THESHOLD] > 0) {
+			int[][] incidence_snap = ((HashMap<Integer, int[][]>) sim_output.get(SIM_OUTPUT_CUMUL_INCIDENCE))
+					.get(currentTime);
+			int mPox_incid = incidence_snap[2][1];
+			// System.out.printf("%s: Incid: %d at %d\n", getRunnableId(), mPox_incid,
+			// currentTime);
+
+			if (mPox_incid >= behavioral_switch_setting[BEHAV_SWITCH_SETTING_INCIDENCE_THESHOLD]) {
+				Integer[] key_arr = propSwitch_map.keySet().toArray(new Integer[0]);
+				Arrays.sort(key_arr);
+				int newTime = currentTime + 1;
+				for (Integer org_time : key_arr) {
+					propSwitch_map.put(newTime, propSwitch_map.remove(org_time));
+					newTime += behavioral_switch_setting[BEHAV_SWITCH_SETTING_DURAION];
+				}
+				behavioral_switch_setting[BEHAV_SWITCH_SETTING_INCIDENCE_THESHOLD] = -1; // Only called once
+
+			}
+
+		}
+	}
+
 	@Override
 	public ArrayList<Integer> loadOptParameter(String[] parameter_settings, double[] point, int[][] seedInfectNum,
 			boolean display_only) {
@@ -658,23 +685,19 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 				Matcher m = sim_switch_time_replace.matcher(parameter_settings[i]);
 				m.find();
 				Integer switch_replace_index = Integer.parseInt(m.group(1));
-				Integer[] key_arr = propSwitch_map.keySet().toArray(new Integer[0]);
-				Arrays.sort(key_arr);
+				behavioral_switch_setting[switch_replace_index] = (int) point[i];
 
-				Integer org_key = key_arr[switch_replace_index];
-				Integer new_key = (int) point[i];
-				propSwitch_map.put(new_key, propSwitch_map.remove(org_key));
 			} else if (sim_switch_entry_replace.matcher(parameter_settings[i]).matches()) {
 				Matcher m = sim_switch_entry_replace.matcher(parameter_settings[i]);
-				m.find();						
+				m.find();
 				Integer[] key_arr = propSwitch_map.keySet().toArray(new Integer[0]);
-				Arrays.sort(key_arr);				
+				Arrays.sort(key_arr);
 				Integer sel_key = key_arr[Integer.parseInt(m.group(1))];
 				Integer type_key = Integer.parseInt(m.group(2));
-				String ent = propSwitch_map.get(sel_key).remove(type_key);							
-				float[][] entVal  = (float[][]) util.PropValUtils.propStrToObject(ent, float[][].class);								
-				entVal[Integer.parseInt(m.group(3))][Integer.parseInt(m.group(4))] = (float) point[i];				
-				propSwitch_map.get(sel_key).put(type_key, util.PropValUtils.objectToPropStr(entVal, float[][].class));			
+				String ent = propSwitch_map.get(sel_key).remove(type_key);
+				float[][] entVal = (float[][]) util.PropValUtils.propStrToObject(ent, float[][].class);
+				entVal[Integer.parseInt(m.group(3))][Integer.parseInt(m.group(4))] = (float) point[i];
+				propSwitch_map.get(sel_key).put(type_key, util.PropValUtils.objectToPropStr(entVal, float[][].class));
 
 			} else if (vacc_prop_replace.matcher(parameter_settings[i]).matches()) {
 				Matcher m = vacc_prop_replace.matcher(parameter_settings[i]);
