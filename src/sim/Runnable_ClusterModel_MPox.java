@@ -87,7 +87,7 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 		File vaccine_coverage_post_outbreak = new File(baseDir, fName_vaccine_coverage);
 		if (vaccine_coverage_post_outbreak.exists()) {
 
-			vaccine_rng = new MersenneTwisterRandomGenerator(sim_seed);
+			vaccine_rng = new MersenneTwisterRandomGenerator(sim_seed);			
 
 			try {
 
@@ -279,31 +279,7 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 			}
 
 			ArrayList<Integer> first_dose_list = vaccine_candidate_by_booster_count.get(0);
-
-			// Further restrictions
-
-//			first_dose_list = new ArrayList<>();
-//			for (Integer first_dose_pid : vaccine_candidate_by_booster_count.get(0)) {						
-//				boolean addList = !false;		
-//				Set<Integer[]> edge_set = cMap.edgesOf(first_dose_pid);		
-//				for (Integer[] e : edge_set) {					
-//					addList |= e[CONTACT_MAP_EDGE_DURATION] <= 1;
-//					addList |= edge_set.size() > 1;
-//					int partner = e[CONTACT_MAP_EDGE_P1].equals(first_dose_pid) ? e[CONTACT_MAP_EDGE_P2]
-//							: e[CONTACT_MAP_EDGE_P1];
-//					addList |= Collections.binarySearch(currently_infectious[1], partner) >= 0;			
-//				}	
-//				if (addList) {
-//					first_dose_list.add(first_dose_pid);
-//				}
-//			}
-
 			ArrayList<Integer> org_list = vaccine_candidate_by_booster_count.get(0);
-
-//			if(first_dose_list.size() < num_vaccine[0]) {
-//				System.out.printf("%d: %d extra vaccine candidate to be added.\n", currentTime, 
-//						num_vaccine[0]- first_dose_list.size());
-//			}
 
 			while (first_dose_list.size() < num_vaccine[0]) {
 				int r_pid = org_list.get(vaccine_rng.nextInt(org_list.size()));
