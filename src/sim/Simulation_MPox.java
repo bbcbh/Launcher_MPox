@@ -3,7 +3,9 @@ package sim;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -40,7 +42,7 @@ public class Simulation_MPox extends Simulation_ClusterModelTransmission {
 	}
 
 	@Override
-	protected void loadAllContactMap(File[] preGenClusterMap, HashMap<Long, File[]> cmap_file_collection,
+	protected void loadAllContactMap(ArrayList<File> preGenClusterMap, HashMap<Long, ArrayList<File>> cmap_file_collection,
 			HashMap<Long, ContactMap> cMap_Map) throws FileNotFoundException, IOException, InterruptedException {
 
 		if (load_full_map) {
@@ -53,7 +55,7 @@ public class Simulation_MPox extends Simulation_ClusterModelTransmission {
 				m.matches();
 				long cMap_seed = Long.parseLong(m.group(1));
 				cMap_Map.put(cMap_seed, null);
-				cmap_file_collection.put(cMap_seed, new File[] { element });
+				cmap_file_collection.put(cMap_seed, new ArrayList<File>(List.of(element)));
 
 			}
 		}
