@@ -7,7 +7,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -25,10 +27,14 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 			.compile("SIM_SWITCH_ENTRY_REPLACE_(\\d+)_(-{0,1}\\d+)_(\\d+)_(\\d+)"); // Switch time, index, array_setting
 	public static final Pattern vacc_prop_replace = Pattern.compile("VACC_PROP_(\\d+)");
 
-	private static int VACCINE_SETTING_INDEX_DURATION = 0;
-	private static int VACCINE_SETTING_INDEX_DECAY_RATE = VACCINE_SETTING_INDEX_DURATION + 1;
-	private static int VACCINE_SETTING_INDEX_BOOSTER_WINDOW = VACCINE_SETTING_INDEX_DECAY_RATE + 1;
-	private static int VACCINE_SETTING_INDEX_INIT_VACCINE_EFFECT = VACCINE_SETTING_INDEX_BOOSTER_WINDOW + 1;
+	private static int MPOX_VACCINE_GLOBAL_SETTING_INDEX_DURATION = 0;
+	private static int MPOX_VACCINE_GLOBAL_SETTING_INDEX_DECAY_RATE = MPOX_VACCINE_GLOBAL_SETTING_INDEX_DURATION + 1;
+	private static int MPOX_VACCINE_GLOBAL_SETTING_INDEX_BOOSTER_WINDOW = MPOX_VACCINE_GLOBAL_SETTING_INDEX_DECAY_RATE
+			+ 1;
+	private static int MPOX_VACCINE_GLOBAL_SETTING_INDEX_INDEX_INIT_VACCINE_EFFECT = MPOX_VACCINE_GLOBAL_SETTING_INDEX_BOOSTER_WINDOW
+			+ 1;
+	private static int MPOX_VACCINE_GLOBAL_SETTING_INDEX_CASUAL_PARTNER_12_MONTH_WEIGHT = MPOX_VACCINE_GLOBAL_SETTING_INDEX_INDEX_INIT_VACCINE_EFFECT
+			+ 1;
 
 	private static final String fName_vaccine_coverage = "Vaccine_Coverage.csv";
 	private static final String fName_vaccine_hist = "Vaccine_Hist.csv";
@@ -45,8 +51,11 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 			new int[] { 24, 35 },
 			// D1 (from chat)
 			new double[] { 0.76, 0.82 },
-
-	};
+			// From Chat -
+			// Chow EPF et al., “Accessing first doses of mpox vaccine made available in
+			// Victoria, Australia”,
+			// Lancet Reg Health West Pac (2023).
+			0.03, };
 
 	private int trans_offset = 0;
 
@@ -87,7 +96,7 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 		File vaccine_coverage_post_outbreak = new File(baseDir, fName_vaccine_coverage);
 		if (vaccine_coverage_post_outbreak.exists()) {
 
-			vaccine_rng = new MersenneTwisterRandomGenerator(sim_seed);			
+			vaccine_rng = new MersenneTwisterRandomGenerator(sim_seed);
 
 			try {
 
@@ -101,7 +110,7 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 
 				int v_start = (int) first_ent;
 				double rate = first_ent - v_start;
-				vaccine_setting_global[VACCINE_SETTING_INDEX_DECAY_RATE] = Math.log(1 - rate)
+				vaccine_setting_global[MPOX_VACCINE_GLOBAL_SETTING_INDEX_DECAY_RATE] = Math.log(1 - rate)
 						/ AbstractIndividualInterface.ONE_YEAR_INT;
 
 				time_outbreak_start = v_start;
@@ -110,7 +119,7 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 				for (int d = 0; d < vacc_eff.length; d++) {
 					vacc_eff[d] = Double.parseDouble(header_line[d + 1]);
 				}
-				vaccine_setting_global[VACCINE_SETTING_INDEX_INIT_VACCINE_EFFECT] = vacc_eff;
+				vaccine_setting_global[MPOX_VACCINE_GLOBAL_SETTING_INDEX_INDEX_INIT_VACCINE_EFFECT] = vacc_eff;
 
 				// Set daily vaccine schedule
 
@@ -155,7 +164,7 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 		int[] res = super.updateCMap(cMap, currentTime, edges_array, edges_array_pt, edgesToRemove, included_pids);
 
 		// Update vaccination
-		int[] booster_range = (int[]) vaccine_setting_global[VACCINE_SETTING_INDEX_BOOSTER_WINDOW];
+		int[] booster_range = (int[]) vaccine_setting_global[MPOX_VACCINE_GLOBAL_SETTING_INDEX_BOOSTER_WINDOW];
 
 		// Pre-outbreak vaccination
 
@@ -238,18 +247,6 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 
 		int[] num_vaccine = vaccine_schedule.remove(currentTime);
 		if (num_vaccine != null) {
-			ArrayList<Integer> in_partnership = new ArrayList<>();
-			for (Integer[] rel : cMap.edgeSet()) {
-				if (rel[CONTACT_MAP_EDGE_START_TIME] <= currentTime
-						&& currentTime <= rel[CONTACT_MAP_EDGE_START_TIME] + rel[CONTACT_MAP_EDGE_DURATION]) {
-					for (Integer pid : new Integer[] { rel[CONTACT_MAP_EDGE_P1], rel[CONTACT_MAP_EDGE_P2] }) {
-						int pt = Collections.binarySearch(in_partnership, pid);
-						if (pt < 0) {
-							in_partnership.add(~pt, pid);
-						}
-					}
-				}
-			}
 
 			// Clear the Dose 1 candidate
 			if (vaccine_candidate_by_booster_count.size() > 0) {
@@ -266,6 +263,21 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 					}
 				}
 			}
+
+			ArrayList<Integer> in_partnership = new ArrayList<>();
+
+			for (Integer[] rel : cMap.edgeSet()) {
+				if (rel[CONTACT_MAP_EDGE_START_TIME] <= currentTime
+						&& currentTime <= rel[CONTACT_MAP_EDGE_START_TIME] + rel[CONTACT_MAP_EDGE_DURATION]) {
+					for (Integer pid : new Integer[] { rel[CONTACT_MAP_EDGE_P1], rel[CONTACT_MAP_EDGE_P2] }) {
+						int pt = Collections.binarySearch(in_partnership, pid);
+						if (pt < 0) {
+							in_partnership.add(~pt, pid);
+						}
+					}
+				}
+			}
+
 			// Add new dose to those with partner today
 			for (Integer pid : in_partnership) {
 				ArrayList<Integer> vacc_rec = vaccine_record_map.get(pid);
@@ -279,13 +291,59 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 			}
 
 			ArrayList<Integer> first_dose_list = vaccine_candidate_by_booster_count.get(0);
-			ArrayList<Integer> org_list = vaccine_candidate_by_booster_count.get(0);
 
-			while (first_dose_list.size() < num_vaccine[0]) {
-				int r_pid = org_list.get(vaccine_rng.nextInt(org_list.size()));
-				int pt = Collections.binarySearch(first_dose_list, r_pid);
-				if (pt < 0) {
-					first_dose_list.add(~pt, r_pid);
+			// TODO: Vaccine candidate selection
+			if ((double) vaccine_setting_global[MPOX_VACCINE_GLOBAL_SETTING_INDEX_CASUAL_PARTNER_12_MONTH_WEIGHT] > 0) {
+
+				ArrayList<Double> candidate_weight = new ArrayList<Double>(first_dose_list.size());
+
+				double cumul_weight = 1;
+				for (int i = 0; i < first_dose_list.size(); i++) {
+					Integer pid = first_dose_list.get(i);
+					Set<Integer[]> edges = bASE_CONTACT_MAP.edgesOf(pid);
+
+					for (Integer[] rel : edges) {
+						if ((currentTime - AbstractIndividualInterface.ONE_YEAR_INT) < rel[CONTACT_MAP_EDGE_START_TIME]
+								&& rel[CONTACT_MAP_EDGE_START_TIME] <= currentTime
+								&& rel[CONTACT_MAP_EDGE_DURATION] <= 1) {
+							cumul_weight += (double) vaccine_setting_global[MPOX_VACCINE_GLOBAL_SETTING_INDEX_CASUAL_PARTNER_12_MONTH_WEIGHT];
+						}						
+					}
+					
+					candidate_weight.add(cumul_weight);
+					cumul_weight++;
+				}
+				ArrayList<Integer> first_dose_list_sel = new ArrayList<>();
+
+				while (first_dose_list_sel.size() < num_vaccine[0]) {
+					Double pSel = vaccine_rng.nextDouble() * candidate_weight.get(candidate_weight.size()-1);
+					int sel_pt = Collections.binarySearch(candidate_weight, pSel);
+					if(sel_pt < 0) {
+						sel_pt = ~sel_pt;
+					}
+					first_dose_list_sel.add(first_dose_list.remove(sel_pt));
+					
+					double org_weight = candidate_weight.remove(sel_pt);
+					org_weight -= candidate_weight.get(sel_pt-1);
+					
+					// Adjust weight
+					for(int k = sel_pt; k < candidate_weight.size(); k++) {
+						candidate_weight.set(k, candidate_weight.get(k).doubleValue() - org_weight );						
+					}														
+				}
+
+				first_dose_list = first_dose_list_sel;
+
+			} else {
+
+				ArrayList<Integer> org_list = vaccine_candidate_by_booster_count.get(0);
+
+				while (first_dose_list.size() < num_vaccine[0]) {
+					int r_pid = org_list.get(vaccine_rng.nextInt(org_list.size()));
+					int pt = Collections.binarySearch(first_dose_list, r_pid);
+					if (pt < 0) {
+						first_dose_list.add(~pt, r_pid);
+					}
 				}
 			}
 
@@ -418,7 +476,7 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 	}
 
 	private int getNumContinuousBooster(int propose_vaccination_time, ArrayList<Integer> vacc_rec) {
-		int[] booster_range = (int[]) vaccine_setting_global[VACCINE_SETTING_INDEX_BOOSTER_WINDOW];
+		int[] booster_range = (int[]) vaccine_setting_global[MPOX_VACCINE_GLOBAL_SETTING_INDEX_BOOSTER_WINDOW];
 		int num_continious_booster = 0;
 		if (vacc_rec != null) {
 			if (vacc_rec.size() > 1) {
@@ -454,10 +512,10 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 			// rec = {pid, booster_date0, ....}
 			if (vac_rec != null && vac_rec.size() > 1) {
 
-				int[] booster_range = (int[]) vaccine_setting_global[VACCINE_SETTING_INDEX_BOOSTER_WINDOW];
-				double[] vaccine_eff = (double[]) vaccine_setting_global[VACCINE_SETTING_INDEX_INIT_VACCINE_EFFECT];
-				int vaccine_dur = (int) vaccine_setting_global[VACCINE_SETTING_INDEX_DURATION];
-				double vaccine_wane_rate = (double) vaccine_setting_global[VACCINE_SETTING_INDEX_DECAY_RATE];
+				int[] booster_range = (int[]) vaccine_setting_global[MPOX_VACCINE_GLOBAL_SETTING_INDEX_BOOSTER_WINDOW];
+				double[] vaccine_eff = (double[]) vaccine_setting_global[MPOX_VACCINE_GLOBAL_SETTING_INDEX_INDEX_INIT_VACCINE_EFFECT];
+				int vaccine_dur = (int) vaccine_setting_global[MPOX_VACCINE_GLOBAL_SETTING_INDEX_DURATION];
+				double vaccine_wane_rate = (double) vaccine_setting_global[MPOX_VACCINE_GLOBAL_SETTING_INDEX_DECAY_RATE];
 
 				int last_dose_at = vac_rec.size() - 1;
 				while (last_dose_at > 1 && vac_rec.get(last_dose_at) > currentTime) {
@@ -682,16 +740,16 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 				switch (vacc_prop_index) {
 				case 0:
 					if (point[i] >= 0) {
-						vaccine_setting_global[VACCINE_SETTING_INDEX_DECAY_RATE] = Math.log(1 - point[i])
+						vaccine_setting_global[MPOX_VACCINE_GLOBAL_SETTING_INDEX_DECAY_RATE] = Math.log(1 - point[i])
 								/ AbstractIndividualInterface.ONE_YEAR_INT;
 					} else {
 						useLinearRate = true;
 						// Linear rate
-						vaccine_setting_global[VACCINE_SETTING_INDEX_DECAY_RATE] = point[i];
+						vaccine_setting_global[MPOX_VACCINE_GLOBAL_SETTING_INDEX_DECAY_RATE] = point[i];
 					}
 					break;
 				default:
-					((double[]) vaccine_setting_global[VACCINE_SETTING_INDEX_INIT_VACCINE_EFFECT])[vacc_prop_index
+					((double[]) vaccine_setting_global[MPOX_VACCINE_GLOBAL_SETTING_INDEX_INDEX_INIT_VACCINE_EFFECT])[vacc_prop_index
 							- 1] = point[i];
 
 				}
