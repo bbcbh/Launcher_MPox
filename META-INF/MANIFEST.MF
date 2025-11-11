@@ -4,5 +4,5 @@ Class-Path: . ClusterModel_lib/commons-math3-3.6.1.jar ClusterModel_lib/
  jgrapht-core-1.5.1.jar ClusterModel_lib/jheaps-0.13.jar ClusterModel_li
  b/jgrapht-ext-1.5.1.jar ClusterModel_lib/jgraphx-4.1.0.jar ClusterModel
  _lib/commons-compress-1.21.jar ClusterModel_lib/commons-io-2.11.0.jar C
- lusterModel_lib/xz-1.9.jar ClusterModel.jar
+ lusterModel_lib/xz-1.9.jar Package_ClusterModel.jar Package_BaseModel.jar RNG.jar
   
