@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -52,9 +51,8 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 			// D1 (from chat)
 			new double[] { 0.76, 0.82 },
 			// From Chat -
-			// Chow EPF et al., “Accessing first doses of mpox vaccine made available in
-			// Victoria, Australia”,
-			// Lancet Reg Health West Pac (2023).
+			// Chow EPF et al.,Accessing first doses of mpox vaccine made available in
+			// Victoria, Australia, Lancet Reg Health West Pac (2023).
 			0.03, };
 
 	private int trans_offset = 0;
