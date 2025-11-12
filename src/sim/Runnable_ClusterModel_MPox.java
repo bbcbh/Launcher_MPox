@@ -35,7 +35,6 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 			+ 1;
 	private static int MPOX_VACCINE_GLOBAL_SETTING_INDEX_CASUAL_PARTNER_12_MONTH_WEIGHT = MPOX_VACCINE_GLOBAL_SETTING_INDEX_INDEX_INIT_VACCINE_EFFECT
 			+ 1;
-	
 
 	private static final String fName_vaccine_coverage = "Vaccine_Coverage.csv";
 	private static final String fName_vaccine_hist = "Vaccine_Hist.csv";
@@ -56,9 +55,9 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 			// If == 0, not used
 			// If > 0 - proprotional weight - from
 			// Chow EPF et al.,Accessing first doses of mpox vaccine made available in
-			// Victoria, Australia, Lancet Reg Health West Pac (2023).			
-			// If < 0 - order by most 			
-			-0.03, };
+			// Victoria, Australia, Lancet Reg Health West Pac (2023).
+			// If < 0 - order by most
+			Double.NEGATIVE_INFINITY, };
 
 	private int trans_offset = 0;
 
@@ -310,85 +309,94 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 								&& rel[CONTACT_MAP_EDGE_START_TIME] <= currentTime
 								&& rel[CONTACT_MAP_EDGE_DURATION] <= 1) {
 							cumul_weight += (double) vaccine_setting_global[MPOX_VACCINE_GLOBAL_SETTING_INDEX_CASUAL_PARTNER_12_MONTH_WEIGHT];
-						}						
+						}
 					}
-					
+
 					candidate_weight.add(cumul_weight);
 					cumul_weight++;
 				}
 				ArrayList<Integer> first_dose_list_sel = new ArrayList<>();
 
 				while (first_dose_list_sel.size() < num_vaccine[0]) {
-					Double pSel = vaccine_rng.nextDouble() * candidate_weight.get(candidate_weight.size()-1);
+					Double pSel = vaccine_rng.nextDouble() * candidate_weight.get(candidate_weight.size() - 1);
 					int sel_pt = Collections.binarySearch(candidate_weight, pSel);
-					if(sel_pt < 0) {
+					if (sel_pt < 0) {
 						sel_pt = ~sel_pt;
 					}
 					first_dose_list_sel.add(first_dose_list.remove(sel_pt));
-					
+
 					double org_weight = candidate_weight.remove(sel_pt);
-					org_weight -= candidate_weight.get(sel_pt-1);
-					
+					org_weight -= candidate_weight.get(sel_pt - 1);
+
 					// Adjust weight
-					for(int k = sel_pt; k < candidate_weight.size(); k++) {
-						candidate_weight.set(k, candidate_weight.get(k).doubleValue() - org_weight );						
-					}														
+					for (int k = sel_pt; k < candidate_weight.size(); k++) {
+						candidate_weight.set(k, candidate_weight.get(k).doubleValue() - org_weight);
+					}
 				}
 
 				first_dose_list = first_dose_list_sel;
 			} else if ((double) vaccine_setting_global[MPOX_VACCINE_GLOBAL_SETTING_INDEX_CASUAL_PARTNER_12_MONTH_WEIGHT] < 0) {
+
+				double index = (double) vaccine_setting_global[MPOX_VACCINE_GLOBAL_SETTING_INDEX_CASUAL_PARTNER_12_MONTH_WEIGHT];
 				// Order by most
 				ArrayList<int[]> candidate_weight = new ArrayList<>(num_vaccine[0]);
 				final Comparator<int[]> cmp_candidate_weight = new Comparator<int[]>() {
 					@Override
 					public int compare(int[] o1, int[] o2) {
 						int res = Integer.compare(o1[1], o2[1]);
-						if(res == 0) {
+						if (res == 0) {
 							res = Integer.compare(o1[0], o2[0]);
-						}								
+						}
 						return res;
-					}														
+					}
 				};
-				
+
 				for (int i = 0; i < first_dose_list.size(); i++) {
 					Integer pid = first_dose_list.get(i);
 					Set<Integer[]> edges = bASE_CONTACT_MAP.edgesOf(pid);
-					int numCasual = 0;					
+					int numCasual = 0;
 
 					for (Integer[] rel : edges) {
-						if ((currentTime - AbstractIndividualInterface.ONE_YEAR_INT) < rel[CONTACT_MAP_EDGE_START_TIME]
-								&& rel[CONTACT_MAP_EDGE_START_TIME] <= currentTime
-								&& rel[CONTACT_MAP_EDGE_DURATION] <= 1) {
-							numCasual++;
-						}						
-					}						
-					int[] mapping = new int[] {pid, numCasual};		
-					if(candidate_weight.size() == 0) {						
+						if (index < -1) {
+							if ((currentTime < rel[CONTACT_MAP_EDGE_START_TIME]
+									&& rel[CONTACT_MAP_EDGE_START_TIME] <= currentTime + AbstractIndividualInterface.ONE_YEAR_INT)
+									&& rel[CONTACT_MAP_EDGE_DURATION] <= 1) {
+								numCasual++;
+							}
+
+						} else {
+							if ((currentTime
+									- AbstractIndividualInterface.ONE_YEAR_INT) < rel[CONTACT_MAP_EDGE_START_TIME]
+									&& rel[CONTACT_MAP_EDGE_START_TIME] <= currentTime
+									&& rel[CONTACT_MAP_EDGE_DURATION] <= 1) {
+								numCasual++;
+							}
+						}
+					}
+					int[] mapping = new int[] { pid, numCasual };
+					if (candidate_weight.size() == 0) {
 						candidate_weight.add(mapping);
-						
-					}else if(candidate_weight.size() < num_vaccine[0] || 
-						candidate_weight.get(0)[1] < numCasual) {						
-						int ins_pt = Collections.binarySearch(candidate_weight, mapping, cmp_candidate_weight);						
-						if(ins_pt < 0) {
-							ins_pt = ~ins_pt;																	
+
+					} else if (candidate_weight.size() < num_vaccine[0] || candidate_weight.get(0)[1] < numCasual) {
+						int ins_pt = Collections.binarySearch(candidate_weight, mapping, cmp_candidate_weight);
+						if (ins_pt < 0) {
+							ins_pt = ~ins_pt;
 						}
 						candidate_weight.add(ins_pt, mapping);
-						if(candidate_weight.size() > num_vaccine[0]) {
+						if (candidate_weight.size() > num_vaccine[0]) {
 							// Trim lowest, or random select lowest if equal
-							int eq_weight_pt = ~Collections.binarySearch(candidate_weight, 
-									new int[] {Integer.MAX_VALUE, candidate_weight.get(0)[1]}, cmp_candidate_weight);							
-							candidate_weight.remove(vaccine_rng.nextInt(eq_weight_pt));																				
-						}																	
-					}				
-					
+							int eq_weight_pt = ~Collections.binarySearch(candidate_weight,
+									new int[] { Integer.MAX_VALUE, candidate_weight.get(0)[1] }, cmp_candidate_weight);
+							candidate_weight.remove(vaccine_rng.nextInt(eq_weight_pt));
+						}
+					}
+
 				}
-				
+
 				first_dose_list.clear();
-				for(int[] candidate_map : candidate_weight) {
+				for (int[] candidate_map : candidate_weight) {
 					first_dose_list.add(candidate_map[0]);
 				}
-				
-				
 
 			} else {
 
