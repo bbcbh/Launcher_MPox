@@ -25,7 +25,7 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 	public static final Pattern sim_switch_time_replace = Pattern.compile("SIM_SWITCH_TIME_REPLACE_(\\d+)");
 	public static final Pattern sim_switch_entry_replace = Pattern
 			.compile("SIM_SWITCH_ENTRY_REPLACE_(\\d+)_(-{0,1}\\d+)_(\\d+)_(\\d+)"); // Switch time, index, array_setting
-	public static final Pattern vacc_prop_replace = Pattern.compile("VACC_PROP_(\\d+)");
+	public static final Pattern vacc_prop_replace = Pattern.compile("VACC_PROP_(-?\\d+)");
 
 	private static int MPOX_VACCINE_GLOBAL_SETTING_INDEX_DURATION = 0;
 	private static int MPOX_VACCINE_GLOBAL_SETTING_INDEX_DECAY_RATE = MPOX_VACCINE_GLOBAL_SETTING_INDEX_DURATION + 1;
@@ -578,7 +578,7 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 
 				int[] booster_range = (int[]) vaccine_setting_global[MPOX_VACCINE_GLOBAL_SETTING_INDEX_BOOSTER_WINDOW];
 				double[] vaccine_eff = (double[]) vaccine_setting_global[MPOX_VACCINE_GLOBAL_SETTING_INDEX_INDEX_INIT_VACCINE_EFFECT];
-				int vaccine_dur = (int) vaccine_setting_global[MPOX_VACCINE_GLOBAL_SETTING_INDEX_DURATION];
+				double vaccine_dur = (double) vaccine_setting_global[MPOX_VACCINE_GLOBAL_SETTING_INDEX_DURATION];
 				double vaccine_wane_rate = (double) vaccine_setting_global[MPOX_VACCINE_GLOBAL_SETTING_INDEX_DECAY_RATE];
 
 				int last_dose_at = vac_rec.size() - 1;
@@ -801,7 +801,7 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 				Matcher m = vacc_prop_replace.matcher(parameter_settings[i]);
 				m.find();
 				Integer vacc_prop_index = Integer.parseInt(m.group(1));
-				switch (vacc_prop_index) {
+				switch (vacc_prop_index) {										
 				case 0:
 					if (point[i] >= 0) {
 						vaccine_setting_global[MPOX_VACCINE_GLOBAL_SETTING_INDEX_DECAY_RATE] = Math.log(1 - point[i])
@@ -811,6 +811,9 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 						// Linear rate
 						vaccine_setting_global[MPOX_VACCINE_GLOBAL_SETTING_INDEX_DECAY_RATE] = point[i];
 					}
+					break;
+				case -1:
+					vaccine_setting_global[0] = point[i];
 					break;
 				default:
 					((double[]) vaccine_setting_global[MPOX_VACCINE_GLOBAL_SETTING_INDEX_INDEX_INIT_VACCINE_EFFECT])[vacc_prop_index
