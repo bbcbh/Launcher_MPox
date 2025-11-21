@@ -866,32 +866,36 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 	}
 
 	@Override
-	public int addInfectious(Integer infectedId, int site, int infectious_time, int recoveredAt) {
-		int res = super.addInfectious(infectedId, site, infectious_time, recoveredAt);		
-		Set<Integer[]> edges = bASE_CONTACT_MAP.edgesOf(infectedId);
+	public int addInfectious(Integer infectedId, int site, int currentTime, int recoveredAt) {
+		int res = super.addInfectious(infectedId, site, currentTime, recoveredAt);
 
-		int reg_partner = -1;
-		int casual_count = 0;
-		for (Integer[] rel : edges) {
-			if (rel[CONTACT_MAP_EDGE_DURATION] >= 1) {
-				if (rel[CONTACT_MAP_EDGE_START_TIME] <= infectious_time
-						&& infectious_time <= rel[CONTACT_MAP_EDGE_START_TIME] + rel[CONTACT_MAP_EDGE_DURATION]) {
-					reg_partner = rel[CONTACT_MAP_EDGE_P1].equals(infectedId)? rel[CONTACT_MAP_EDGE_P2] : rel[CONTACT_MAP_EDGE_P1];
-				}
+		if (res < 0) {
+			int reg_partner = -1;
+			int casual_count = 0;
+			Set<Integer[]> edges = bASE_CONTACT_MAP.edgesOf(infectedId);
 
-			} else {
-				if ((infectious_time - AbstractIndividualInterface.ONE_YEAR_INT) < rel[CONTACT_MAP_EDGE_START_TIME]
-						&& rel[CONTACT_MAP_EDGE_START_TIME] <= infectious_time) {
-					casual_count++;
+			for (Integer[] rel : edges) {
+				if (rel[CONTACT_MAP_EDGE_DURATION] > 1) {
+					if (rel[CONTACT_MAP_EDGE_START_TIME] <= currentTime
+							&& currentTime <= rel[CONTACT_MAP_EDGE_START_TIME] + rel[CONTACT_MAP_EDGE_DURATION]) {
+						reg_partner = rel[CONTACT_MAP_EDGE_P1].equals(infectedId) ? rel[CONTACT_MAP_EDGE_P2]
+								: rel[CONTACT_MAP_EDGE_P1];
+					}
+
+				} else {
+					if ((currentTime - AbstractIndividualInterface.ONE_YEAR_INT) < rel[CONTACT_MAP_EDGE_START_TIME]
+							&& rel[CONTACT_MAP_EDGE_START_TIME] <= currentTime) {
+						casual_count++;
+					}
+
 				}
 
 			}
 
+			// Time,PID,NUM_CASUAL_PARTNER_LAST_12_MONTHS
+			indivdual_incidence_stat_lines
+					.add(String.format("%d,%d,%d,%d", currentTime, infectedId, reg_partner, casual_count));
 		}
-
-		// Time,PID,NUM_CASUAL_PARTNER_LAST_12_MONTHS
-		indivdual_incidence_stat_lines
-				.add(String.format("%d,%d,%d,%d", infectious_time, infectedId, reg_partner, casual_count));
 
 		return res;
 	}
