@@ -8,6 +8,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -39,6 +40,10 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 	private static final String fName_vaccine_coverage = "Vaccine_Coverage.csv";
 	private static final String fName_vaccine_hist = "Vaccine_Hist.csv";
 	private static final String fName_vaccine_stat = "Vaccine_Stat.csv";
+	private static final String fName_indivdual_incidence_stat = "Incidence_Stat.csv";
+
+	ArrayList<String> indivdual_incidence_stat_lines = new ArrayList<>(
+			List.of("TIME,PID,REG_PARNTER,NUM_CASUAL_PARTNER_LAST_12_MONTHS"));
 
 	private static final int MAX_DOSE_COUNT = 4;
 
@@ -359,7 +364,8 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 					for (Integer[] rel : edges) {
 						if (index < -1) {
 							if ((currentTime < rel[CONTACT_MAP_EDGE_START_TIME]
-									&& rel[CONTACT_MAP_EDGE_START_TIME] <= currentTime + AbstractIndividualInterface.ONE_YEAR_INT)
+									&& rel[CONTACT_MAP_EDGE_START_TIME] <= currentTime
+											+ AbstractIndividualInterface.ONE_YEAR_INT)
 									&& rel[CONTACT_MAP_EDGE_DURATION] <= 1) {
 								numCasual++;
 							}
@@ -737,7 +743,20 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 			} catch (IOException e) {
 				e.printStackTrace(System.err);
 			}
+		}
 
+		if (indivdual_incidence_stat_lines.size() > 1) {
+			try {
+				PrintWriter pWri = new PrintWriter(new File(baseDir, filePrefix + fName_indivdual_incidence_stat));
+				for (String line : indivdual_incidence_stat_lines) {
+					pWri.println(line);
+				}
+				pWri.close();
+
+			} catch (IOException e) {
+				e.printStackTrace(System.err);
+
+			}
 		}
 
 	}
@@ -801,7 +820,7 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 				Matcher m = vacc_prop_replace.matcher(parameter_settings[i]);
 				m.find();
 				Integer vacc_prop_index = Integer.parseInt(m.group(1));
-				switch (vacc_prop_index) {										
+				switch (vacc_prop_index) {
 				case 0:
 					if (point[i] >= 0) {
 						vaccine_setting_global[MPOX_VACCINE_GLOBAL_SETTING_INDEX_DECAY_RATE] = Math.log(1 - point[i])
@@ -844,6 +863,37 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 
 		return super.loadOptParameter(parameter_settings_filtered.toArray(new String[0]), point_filtered_arr,
 				seedInfectNum, display_only);
+	}
+
+	@Override
+	public int addInfectious(Integer infectedId, int site, int infectious_time, int recoveredAt) {
+		int res = super.addInfectious(infectedId, site, infectious_time, recoveredAt);		
+		Set<Integer[]> edges = bASE_CONTACT_MAP.edgesOf(infectedId);
+
+		int reg_partner = -1;
+		int casual_count = 0;
+		for (Integer[] rel : edges) {
+			if (rel[CONTACT_MAP_EDGE_DURATION] >= 1) {
+				if (rel[CONTACT_MAP_EDGE_START_TIME] <= infectious_time
+						&& infectious_time <= rel[CONTACT_MAP_EDGE_START_TIME] + rel[CONTACT_MAP_EDGE_DURATION]) {
+					reg_partner = rel[CONTACT_MAP_EDGE_P1].equals(infectedId)? rel[CONTACT_MAP_EDGE_P2] : rel[CONTACT_MAP_EDGE_P1];
+				}
+
+			} else {
+				if ((infectious_time - AbstractIndividualInterface.ONE_YEAR_INT) < rel[CONTACT_MAP_EDGE_START_TIME]
+						&& rel[CONTACT_MAP_EDGE_START_TIME] <= infectious_time) {
+					casual_count++;
+				}
+
+			}
+
+		}
+
+		// Time,PID,NUM_CASUAL_PARTNER_LAST_12_MONTHS
+		indivdual_incidence_stat_lines
+				.add(String.format("%d,%d,%d,%d", infectious_time, infectedId, reg_partner, casual_count));
+
+		return res;
 	}
 
 }
