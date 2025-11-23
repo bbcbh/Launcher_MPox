@@ -37,6 +37,12 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 	private static int MPOX_VACCINE_GLOBAL_SETTING_INDEX_CASUAL_PARTNER_12_MONTH_WEIGHT = MPOX_VACCINE_GLOBAL_SETTING_INDEX_INDEX_INIT_VACCINE_EFFECT
 			+ 1;
 
+	public static final int MPOX_VACCINE_VACC_PROP_VACCINE_DECAY_RATE = 0;
+	public static final int MPOX_VACCINE_VACC_PROP_VACCINE_EFF_DOSE_1 = 1;
+	public static final int MPOX_VACCINE_VACC_PROP_VACCINE_EFF_DOSE_2 = 2;
+	public static final int MPOX_VACCINE_VACC_PROP_VACCINE_DUR = -1;
+	public static final int MPOX_VACICNE_VACC_PROP_VACCINE_SEL = -2;
+
 	private static final String fName_vaccine_coverage = "Vaccine_Coverage.csv";
 	private static final String fName_vaccine_hist = "Vaccine_Hist.csv";
 	private static final String fName_vaccine_stat = "Vaccine_Stat.csv";
@@ -61,8 +67,8 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 			// If > 0 - proprotional weight - from
 			// Chow EPF et al.,Accessing first doses of mpox vaccine made available in
 			// Victoria, Australia, Lancet Reg Health West Pac (2023).
-			// If < 0 - order by most
-			Double.NEGATIVE_INFINITY, };
+			// If < 0 - order by most, with < -1 means future 12 months
+			-0.5 };
 
 	private int trans_offset = 0;
 
@@ -821,7 +827,7 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 				m.find();
 				Integer vacc_prop_index = Integer.parseInt(m.group(1));
 				switch (vacc_prop_index) {
-				case 0:
+				case MPOX_VACCINE_VACC_PROP_VACCINE_DECAY_RATE:
 					if (point[i] >= 0) {
 						vaccine_setting_global[MPOX_VACCINE_GLOBAL_SETTING_INDEX_DECAY_RATE] = Math.log(1 - point[i])
 								/ AbstractIndividualInterface.ONE_YEAR_INT;
@@ -831,12 +837,21 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 						vaccine_setting_global[MPOX_VACCINE_GLOBAL_SETTING_INDEX_DECAY_RATE] = point[i];
 					}
 					break;
-				case -1:
+				case MPOX_VACCINE_VACC_PROP_VACCINE_DUR:
+					// Vaccine duration
 					vaccine_setting_global[0] = point[i];
 					break;
+				case MPOX_VACCINE_VACC_PROP_VACCINE_EFF_DOSE_1:
+					((double[]) vaccine_setting_global[MPOX_VACCINE_GLOBAL_SETTING_INDEX_INDEX_INIT_VACCINE_EFFECT])[0] = point[i];
+					break;
+				case MPOX_VACCINE_VACC_PROP_VACCINE_EFF_DOSE_2:
+					((double[]) vaccine_setting_global[MPOX_VACCINE_GLOBAL_SETTING_INDEX_INDEX_INIT_VACCINE_EFFECT])[1] = point[i];
+					break;
+				case MPOX_VACICNE_VACC_PROP_VACCINE_SEL:
+					vaccine_setting_global[MPOX_VACCINE_GLOBAL_SETTING_INDEX_CASUAL_PARTNER_12_MONTH_WEIGHT] = point[i];					
+					break;
 				default:
-					((double[]) vaccine_setting_global[MPOX_VACCINE_GLOBAL_SETTING_INDEX_INDEX_INIT_VACCINE_EFFECT])[vacc_prop_index
-							- 1] = point[i];
+					System.err.printf("Warning: VACC_PROP_%d not defined. Entry skipped.\n", vacc_prop_index);
 
 				}
 
