@@ -879,6 +879,26 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 		return super.loadOptParameter(parameter_settings_filtered.toArray(new String[0]), point_filtered_arr,
 				seedInfectNum, display_only);
 	}
+	
+	
+	
+
+	HashMap<Integer, int[]> last_inf_rec = new HashMap<>();
+	@Override
+	protected void transmission_success(int currentTime, Integer infectious, int partner, int site_target, int actType,
+			Object[] simulation_store) {		
+		super.transmission_success(currentTime, infectious, partner, site_target, actType, simulation_store);
+		
+		int[] rec = last_inf_rec.get(partner);
+		
+		if(rec == null) {
+			rec = new int[2];	
+			last_inf_rec.put(partner, rec);
+		}		
+		rec[0] = infectious.intValue();
+		rec[1] = currentTime;				
+		
+	}
 
 	@Override
 	public int addInfectious(Integer infectedId, int site, int currentTime, int recoveredAt) {
@@ -904,8 +924,17 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 					}
 
 				}
-
 			}
+			
+			
+			if(reg_partner == -1 && casual_count == 0) {
+				// Check record
+				int[] inf_rec = last_inf_rec.get(infectedId);
+				if(inf_rec != null) {					
+					reg_partner = ~inf_rec[0];		// Bit-wise complement of last transmission partner											
+				}													
+			}
+			
 
 			// Time,PID,NUM_CASUAL_PARTNER_LAST_12_MONTHS
 			indivdual_incidence_stat_lines
