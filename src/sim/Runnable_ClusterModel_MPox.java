@@ -848,7 +848,7 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 					((double[]) vaccine_setting_global[MPOX_VACCINE_GLOBAL_SETTING_INDEX_INDEX_INIT_VACCINE_EFFECT])[1] = point[i];
 					break;
 				case MPOX_VACICNE_VACC_PROP_VACCINE_SEL:
-					vaccine_setting_global[MPOX_VACCINE_GLOBAL_SETTING_INDEX_CASUAL_PARTNER_12_MONTH_WEIGHT] = point[i];					
+					vaccine_setting_global[MPOX_VACCINE_GLOBAL_SETTING_INDEX_CASUAL_PARTNER_12_MONTH_WEIGHT] = point[i];
 					break;
 				default:
 					System.err.printf("Warning: VACC_PROP_%d not defined. Entry skipped.\n", vacc_prop_index);
@@ -879,25 +879,23 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 		return super.loadOptParameter(parameter_settings_filtered.toArray(new String[0]), point_filtered_arr,
 				seedInfectNum, display_only);
 	}
-	
-	
-	
 
 	HashMap<Integer, int[]> last_inf_rec = new HashMap<>();
+
 	@Override
 	protected void transmission_success(int currentTime, Integer infectious, int partner, int site_target, int actType,
-			Object[] simulation_store) {		
+			Object[] simulation_store) {
 		super.transmission_success(currentTime, infectious, partner, site_target, actType, simulation_store);
-		
+
 		int[] rec = last_inf_rec.get(partner);
-		
-		if(rec == null) {
-			rec = new int[2];	
+
+		if (rec == null) {
+			rec = new int[2];
 			last_inf_rec.put(partner, rec);
-		}		
+		}
 		rec[0] = infectious.intValue();
-		rec[1] = currentTime;				
-		
+		rec[1] = currentTime;
+
 	}
 
 	@Override
@@ -925,16 +923,14 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 
 				}
 			}
-			
-			
-			if(reg_partner == -1 && casual_count == 0) {
+
+			if (reg_partner == -1 && casual_count == 0) {
 				// Check record
 				int[] inf_rec = last_inf_rec.get(infectedId);
-				if(inf_rec != null) {					
-					reg_partner = ~inf_rec[0];		// Bit-wise complement of last transmission partner											
-				}													
+				if (inf_rec != null) {
+					reg_partner = ~inf_rec[0]; // Bit-wise complement of last transmission partner
+				}
 			}
-			
 
 			// Time,PID,NUM_CASUAL_PARTNER_LAST_12_MONTHS
 			indivdual_incidence_stat_lines
@@ -942,6 +938,52 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 		}
 
 		return res;
+	}
+
+	@Override
+	public void allocateSeedInfection(int[][] num_infectioned_by_gender_site, int time) {
+		// super.allocateSeedInfection(num_infectioned_by_gender_site, time);
+
+		for (int g = 0; g < Population_Bridging.LENGTH_GENDER; g++) {
+			for (int s = 0; s < LENGTH_SITE; s++) {
+				if (num_infectioned_by_gender_site[g][s] != 0) {
+					int[] seed_candidates = new int[num_infectioned_by_gender_site[g][s]];
+					int[] seed_candidates_weight = new int[seed_candidates.length];
+
+					for (Integer pid : bASE_CONTACT_MAP.vertexSet()) {
+						int future_edge_count = 0;
+						for (Integer[] rel : bASE_CONTACT_MAP.edgesOf(pid)) {
+							int rel_start = rel[CONTACT_MAP_EDGE_START_TIME];
+							int rel_end = rel[CONTACT_MAP_EDGE_DURATION] + rel_start;
+
+							if (rel_end > time && rel_start < time + 30) {
+								future_edge_count++;
+							}
+						}
+
+						for (int tPt = 0; tPt < seed_candidates_weight.length; tPt++) {
+							if (seed_candidates_weight[tPt] < future_edge_count) {
+								for (int t_shift = tPt + 1; t_shift < seed_candidates_weight.length; t_shift++) {
+									seed_candidates_weight[t_shift] = seed_candidates_weight[t_shift - 1];
+									seed_candidates[t_shift] = seed_candidates[t_shift - 1];
+								}
+
+								seed_candidates_weight[tPt] = future_edge_count;
+								seed_candidates[tPt] = pid;
+								break;
+							}
+
+						}
+					}
+					for (int pid : seed_candidates) {
+						addInfectious(pid, s, time, time + (int) Math.round(infectious_period[s].sample()));
+					}
+
+				}
+
+			}
+		}
+
 	}
 
 }
