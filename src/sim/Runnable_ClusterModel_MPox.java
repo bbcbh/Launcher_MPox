@@ -975,8 +975,22 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 
 						}
 					}
-					for (int pid : seed_candidates) {
-						addInfectious(pid, s, time, time + (int) Math.round(infectious_period[s].sample()));
+					for (int i = 0; i < seed_candidates.length; i++) {
+						
+						if (print_progress != null && runnableId != null) {
+							try {
+								print_progress.printf("Thread <%s>: Seed Infection at t=%d, pid=%d, num_future_partner=%d\n", 
+										runnableId, time, seed_candidates[i], seed_candidates_weight[i]);
+							} catch (Exception ex) {
+								System.err.printf("Thread <%s>: Seed Infection at t=%d, pid=%d, num_future_partner=%d\n", 
+										runnableId, time, seed_candidates[i], seed_candidates_weight[i]);
+							}
+						}else {
+							System.out.printf("Seed<%d,%d>: Seed Infection at t=%d, pid=%d, num_future_partner=%d\n", 
+									getcMap_seed(),	getSim_seed(), time, seed_candidates[i], seed_candidates_weight[i]);
+						}
+						
+						addInfectious(seed_candidates[i], s, time, time + (int) Math.round(infectious_period[s].sample()));
 					}
 
 				}
