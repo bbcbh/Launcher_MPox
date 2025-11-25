@@ -944,53 +944,63 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 	public void allocateSeedInfection(int[][] num_infectioned_by_gender_site, int time) {
 		// super.allocateSeedInfection(num_infectioned_by_gender_site, time);
 
+		HashMap<Integer, ArrayList<Integer>> seed_candidates = new HashMap<>();
+		for (Integer pid : bASE_CONTACT_MAP.vertexSet()) {
+			int future_edge_count = 0;
+			for (Integer[] rel : bASE_CONTACT_MAP.edgesOf(pid)) {
+				int rel_start = rel[CONTACT_MAP_EDGE_START_TIME];
+				int rel_end = rel[CONTACT_MAP_EDGE_DURATION] + rel_start;
+
+				if (rel_end > time && rel_start < time + 30) {
+					future_edge_count++;
+				}
+			}
+			ArrayList<Integer> ent = seed_candidates.get(future_edge_count);
+			if (ent == null) {
+				ent = new ArrayList<>();
+				seed_candidates.put(future_edge_count, ent);
+			}
+			ent.add(pid);
+		}
+
+		Integer[] weight_count = seed_candidates.keySet().toArray(new Integer[0]);
+		Arrays.sort(weight_count);
+
 		for (int g = 0; g < Population_Bridging.LENGTH_GENDER; g++) {
 			for (int s = 0; s < LENGTH_SITE; s++) {
 				if (num_infectioned_by_gender_site[g][s] != 0) {
-					int[] seed_candidates = new int[num_infectioned_by_gender_site[g][s]];
-					int[] seed_candidates_weight = new int[seed_candidates.length];
+					int num_seed = num_infectioned_by_gender_site[g][s];
+					int arr_pt = weight_count.length - 1;
 
-					for (Integer pid : bASE_CONTACT_MAP.vertexSet()) {
-						int future_edge_count = 0;
-						for (Integer[] rel : bASE_CONTACT_MAP.edgesOf(pid)) {
-							int rel_start = rel[CONTACT_MAP_EDGE_START_TIME];
-							int rel_end = rel[CONTACT_MAP_EDGE_DURATION] + rel_start;
-
-							if (rel_end > time && rel_start < time + 30) {
-								future_edge_count++;
-							}
+					while (num_seed > 0) {
+						ArrayList<Integer> ent = seed_candidates.get(weight_count[arr_pt]);
+						while (ent.isEmpty() && arr_pt >= 0) {
+							arr_pt--;
+							ent = seed_candidates.get(weight_count[arr_pt]);
 						}
+						if (!ent.isEmpty()) {
+							Integer seed_pid = ent.remove(RNG.nextInt(ent.size()));
+							addInfectious(seed_pid, s, time, time + (int) Math.round(infectious_period[s].sample()));
+							num_seed--;
 
-						for (int tPt = 0; tPt < seed_candidates_weight.length; tPt++) {
-							if (seed_candidates_weight[tPt] < future_edge_count) {
-								for (int t_shift = tPt + 1; t_shift < seed_candidates_weight.length; t_shift++) {
-									seed_candidates_weight[t_shift] = seed_candidates_weight[t_shift - 1];
-									seed_candidates[t_shift] = seed_candidates[t_shift - 1];
+							if (print_progress != null && runnableId != null) {
+								try {
+									print_progress.printf(
+											"Thread <%s>: Seed Infection at t=%d, pid=%d, num_future_partner=%d\n",
+											runnableId, time, seed_pid, weight_count[arr_pt]);
+								} catch (Exception ex) {
+									System.err.printf(
+											"Thread <%s>: Seed Infection at t=%d, pid=%d, num_future_partner=%d\n",
+											runnableId, time, seed_pid, weight_count[arr_pt]);
 								}
-
-								seed_candidates_weight[tPt] = future_edge_count;
-								seed_candidates[tPt] = pid;
-								break;
+							} else {
+								System.out.printf(
+										"Seed<%d,%d>: Seed Infection at t=%d, pid=%d, num_future_partner=%d\n",
+										getcMap_seed(), getSim_seed(), time, seed_pid, weight_count[arr_pt]);
 							}
 
 						}
-					}
-					for (int i = 0; i < seed_candidates.length; i++) {
-						
-						if (print_progress != null && runnableId != null) {
-							try {
-								print_progress.printf("Thread <%s>: Seed Infection at t=%d, pid=%d, num_future_partner=%d\n", 
-										runnableId, time, seed_candidates[i], seed_candidates_weight[i]);
-							} catch (Exception ex) {
-								System.err.printf("Thread <%s>: Seed Infection at t=%d, pid=%d, num_future_partner=%d\n", 
-										runnableId, time, seed_candidates[i], seed_candidates_weight[i]);
-							}
-						}else {
-							System.out.printf("Seed<%d,%d>: Seed Infection at t=%d, pid=%d, num_future_partner=%d\n", 
-									getcMap_seed(),	getSim_seed(), time, seed_candidates[i], seed_candidates_weight[i]);
-						}
-						
-						addInfectious(seed_candidates[i], s, time, time + (int) Math.round(infectious_period[s].sample()));
+
 					}
 
 				}
