@@ -114,8 +114,17 @@ public class Simulation_MPox extends Simulation_ClusterModelTransmission {
 			pop_composition = (int[]) PropValUtils.propStrToObject(loadedProperties.getProperty(popCompositionKey),
 					int[].class);
 		}
+		
+		ContactMap baseMap_src = baseContactMapMapping.get(cMap_seed);
+		
+		// Create a clone version of contact map
+		try {
+			baseMap_src = ContactMap.ContactMapFromFullString(baseMap_src.toFullString());
+		} catch (IOException e) {
+			e.printStackTrace(System.err);			
+		}				
 		return new Runnable_ClusterModel_MPox(cMap_seed, sim_seed, pop_composition,
-				baseContactMapMapping.get(cMap_seed), num_time_steps_per_snap, num_snap, baseDir);
+				baseMap_src , num_time_steps_per_snap, num_snap, baseDir);
 	}
 
 	@Override
