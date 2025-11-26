@@ -173,7 +173,7 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 
 	@Override
 	protected int[] updateCMap(ContactMap cMap, int currentTime, Integer[][] edges_array, int edges_array_pt,
-			HashMap<Integer, ArrayList<Integer[]>> edgesToRemove, ArrayList<Integer> included_pids) {				
+			HashMap<Integer, ArrayList<Integer[]>> edgesToRemove, ArrayList<Integer> included_pids) {
 		int[] res = super.updateCMap(cMap, currentTime, edges_array, edges_array_pt, edgesToRemove, included_pids);
 
 		// Update vaccination
@@ -297,10 +297,15 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 				int num_continious_booster = getNumContinuousBooster(currentTime, vacc_rec);
 				num_continious_booster = Math.min(num_continious_booster, num_vaccine.length - 1);
 				ArrayList<Integer> dosage_ent = vaccine_candidate_by_booster_count.get(num_continious_booster);
+				if (dosage_ent == null) {
+					dosage_ent = new ArrayList<>();
+					vaccine_candidate_by_booster_count.put(num_continious_booster, dosage_ent);
+				}
 				int pt = Collections.binarySearch(dosage_ent, pid);
 				if (pt < 0) {
 					dosage_ent.add(~pt, pid);
 				}
+
 			}
 
 			ArrayList<Integer> first_dose_list = vaccine_candidate_by_booster_count.get(0);
@@ -431,7 +436,7 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 			for (int dose_pt = 0; dose_pt < num_vaccine.length; dose_pt++) {
 				if (num_vaccine[dose_pt] > 0) {
 					ArrayList<Integer> vacc_candidates = vaccine_candidate_by_booster_count.get(dose_pt);
-					Integer[] vacc_today = vacc_candidates.toArray(new Integer[0]);
+					Integer[] vacc_today = vacc_candidates != null ? vacc_candidates.toArray(new Integer[0]): new Integer[0];
 					if (dose_pt != 0) {
 						ArrayList<Integer> vacc_rec_order_filtered = new ArrayList<>();
 						for (int pid : vacc_today) {
@@ -498,7 +503,7 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 							vacc_today_all_groups.add(~pt, pid);
 						}
 						// Remove non-Dose 1 candidates (as they will be move to different booster count
-						if (dose_pt > 0) {
+						if (dose_pt > 0 && vaccine_candidate_by_booster_count.get(dose_pt) != null) {
 							pt = Collections.binarySearch(vaccine_candidate_by_booster_count.get(dose_pt), pid);
 							if (pt >= 0) {
 								vaccine_candidate_by_booster_count.get(dose_pt).remove(pt);
@@ -521,6 +526,10 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 				vacc_rec.add(currentTime);
 				int num_continious_booster = getNumContinuousBooster(currentTime, vacc_rec);
 				num_continious_booster = Math.min(num_continious_booster, num_vaccine.length - 1);
+				
+				if(vaccine_candidate_by_booster_count.get(num_continious_booster)  == null) {
+					vaccine_candidate_by_booster_count.put(num_continious_booster, new ArrayList<>());
+				}
 				pt = Collections.binarySearch(vaccine_candidate_by_booster_count.get(num_continious_booster), pid);
 				if (pt < 0) {
 					vaccine_candidate_by_booster_count.get(num_continious_booster).add(~pt, pid);
