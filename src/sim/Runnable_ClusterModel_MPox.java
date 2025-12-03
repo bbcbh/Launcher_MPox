@@ -55,7 +55,7 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 
 	private Object[] vaccine_setting_global = new Object[] {
 			// Duration of 5 years (US CDC)
-			5 * AbstractIndividualInterface.ONE_YEAR_INT,
+			5.0 * AbstractIndividualInterface.ONE_YEAR_INT,
 			// Decay rate - 15% per year (JYNNEOS 10-20%)
 			Math.log(1 - 0.15) / AbstractIndividualInterface.ONE_YEAR_INT,
 			// Booster limit range (anything bigger revert to first dose)
