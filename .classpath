@@ -12,13 +12,13 @@
 			<attribute name="maven.pomderived" value="true"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry combineaccessrules="false" kind="src" path="/Package_BaseModel"/>
-	<classpathentry combineaccessrules="false" kind="src" path="/Package_ClusterModel"/>
-	<classpathentry combineaccessrules="false" kind="src" path="/RNG"/>
 	<classpathentry kind="con" path="org.eclipse.m2e.MAVEN2_CLASSPATH_CONTAINER">
 		<attributes>
 			<attribute name="maven.pomderived" value="true"/>
 		</attributes>
 	</classpathentry>
+	<classpathentry combineaccessrules="false" kind="src" path="/RNG"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/Package_ClusterModel"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/Package_BaseModel"/>
 	<classpathentry kind="output" path="target/classes"/>
 </classpath>

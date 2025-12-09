@@ -1,26 +1,18 @@
 package sim;
 
-import java.io.BufferedReader;
-import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Properties;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import population.Population_Bridging;
 import relationship.ContactMap;
 import util.PropValUtils;
 
 public class Simulation_MPox extends Simulation_ClusterModelTransmission {
-	int load_full_map = Integer.MAX_VALUE;
-
+	
 	public Simulation_MPox(int load_full_map) {
-		this.load_full_map = load_full_map;
+		super();
+		this.setLoad_partial_map(load_full_map);
 	}
 
 	public static void main(String[] args) throws IOException, InterruptedException {
@@ -34,7 +26,7 @@ public class Simulation_MPox extends Simulation_ClusterModelTransmission {
 		} else {
 			int load_full_map = Integer.MAX_VALUE;
 			for (String arg : args) {
-				if (arg.startsWith("-partialLoadMap=")) {
+				if (arg.startsWith(LAUNCH_ARGS_PARTIALLOAD_MAP)) {
 					String[] argSp = arg.split("=");
 					load_full_map = Integer.parseInt(argSp[1]);
 				}
@@ -42,52 +34,6 @@ public class Simulation_MPox extends Simulation_ClusterModelTransmission {
 
 			Simulation_ClusterModelTransmission.launch(args, new Simulation_MPox(load_full_map));
 
-		}
-	}
-
-	@Override
-	protected void loadAllContactMap(ArrayList<File> preGenClusterMap,
-			HashMap<Long, ArrayList<File>> cmap_file_collection, HashMap<Long, ContactMap> cMap_Map)
-			throws FileNotFoundException, IOException, InterruptedException {
-
-		if (load_full_map == Integer.MAX_VALUE) {
-			super.loadAllContactMap(preGenClusterMap, cmap_file_collection, cMap_Map);
-		} else {
-			for (File element : preGenClusterMap) {
-				System.out.printf("Loading on ContactMap files located at %s.\n", element.getAbsolutePath());
-				Matcher m = Pattern.compile(REGEX_ALL_CMAP).matcher(element.getName());
-				m.matches();
-				long cMap_seed = Long.parseLong(m.group(1));
-				cMap_Map.put(cMap_seed, null);
-				cmap_file_collection.put(cMap_seed, new ArrayList<File>(List.of(element)));
-
-				if (load_full_map > 0) {
-					System.out.printf("Loading (in series) on ContactMap located at %s upto t=%d.\n",
-							element.getAbsolutePath(), load_full_map);
-
-					BufferedReader reader = new BufferedReader(new FileReader(element));
-
-					StringBuilder strWri = new StringBuilder();
-
-					String line;
-					while ((line = reader.readLine()) != null) {
-						String[] ent = line.split(",");
-						if (Integer.parseInt(
-								ent[Abstract_Runnable_ClusterModel.CONTACT_MAP_EDGE_START_TIME]) <= load_full_map) {
-							strWri.append(line);
-							strWri.append('\n');
-						} else {
-							break;
-						}
-					}
-
-					reader.close();
-
-					cMap_Map.put(cMap_seed, ContactMap.ContactMapFromFullString(strWri.toString()));
-
-				}
-
-			}
 		}
 	}
 
