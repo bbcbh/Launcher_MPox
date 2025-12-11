@@ -96,10 +96,9 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 
 	private boolean useLinearRate = false;
 
-	private int[] behavioral_switch_setting = new int[] { 960, 180 }; // default switch when incidence hit, switch
-																		// duration
-	private int BEHAV_SWITCH_SETTING_INCIDENCE_THESHOLD = 0;
-	private int BEHAV_SWITCH_SETTING_DURAION = BEHAV_SWITCH_SETTING_INCIDENCE_THESHOLD + 1;
+	//private int[] behavioral_switch_setting = new int[] { 960, 180 }; // default switch when incidence hit, switch																		// duration
+	//private int BEHAV_SWITCH_SETTING_INCIDENCE_THESHOLD = 0;
+	//private int BEHAV_SWITCH_SETTING_DURAION = BEHAV_SWITCH_SETTING_INCIDENCE_THESHOLD + 1;
 
 	public Runnable_ClusterModel_MPox(long cMap_seed, long sim_seed, int[] POP_COMPOSITION, ContactMap BASE_CONTACT_MAP,
 			int NUM_TIME_STEPS_PER_SNAP, int NUM_SNAP, File baseDir) {
@@ -776,32 +775,32 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 
 	}
 
-	@SuppressWarnings("unchecked")
-	@Override
-	protected void postTimeStep(int currentTime) {
-		super.postTimeStep(currentTime);
-
-		if (behavioral_switch_setting[BEHAV_SWITCH_SETTING_INCIDENCE_THESHOLD] > 0) {
-			int[][] incidence_snap = ((HashMap<Integer, int[][]>) sim_output.get(SIM_OUTPUT_CUMUL_INCIDENCE))
-					.get(currentTime);
-			int mPox_incid = incidence_snap[2][1];
-			// System.out.printf("%s: Incid: %d at %d\n", getRunnableId(), mPox_incid,
-			// currentTime);
-
-			if (mPox_incid >= behavioral_switch_setting[BEHAV_SWITCH_SETTING_INCIDENCE_THESHOLD]) {
-				Integer[] key_arr = propSwitch_map.keySet().toArray(new Integer[0]);
-				Arrays.sort(key_arr);
-				int newTime = currentTime + 1;
-				for (Integer org_time : key_arr) {
-					propSwitch_map.put(newTime, propSwitch_map.remove(org_time));
-					newTime += behavioral_switch_setting[BEHAV_SWITCH_SETTING_DURAION];
-				}
-				behavioral_switch_setting[BEHAV_SWITCH_SETTING_INCIDENCE_THESHOLD] = -1; // Only called once
-
-			}
-
-		}
-	}
+//	@SuppressWarnings("unchecked")
+//	@Override
+//	protected void postTimeStep(int currentTime) {
+//		super.postTimeStep(currentTime);
+//
+//		if (behavioral_switch_setting[BEHAV_SWITCH_SETTING_INCIDENCE_THESHOLD] > 0) {
+//			int[][] incidence_snap = ((HashMap<Integer, int[][]>) sim_output.get(SIM_OUTPUT_CUMUL_INCIDENCE))
+//					.get(currentTime);
+//			int mPox_incid = incidence_snap[2][1];
+//			// System.out.printf("%s: Incid: %d at %d\n", getRunnableId(), mPox_incid,
+//			// currentTime);
+//
+//			if (mPox_incid >= behavioral_switch_setting[BEHAV_SWITCH_SETTING_INCIDENCE_THESHOLD]) {
+//				Integer[] key_arr = propSwitch_map.keySet().toArray(new Integer[0]);
+//				Arrays.sort(key_arr);
+//				int newTime = currentTime + 1;
+//				for (Integer org_time : key_arr) {
+//					propSwitch_map.put(newTime, propSwitch_map.remove(org_time));
+//					newTime += behavioral_switch_setting[BEHAV_SWITCH_SETTING_DURAION];
+//				}
+//				behavioral_switch_setting[BEHAV_SWITCH_SETTING_INCIDENCE_THESHOLD] = -1; // Only called once
+//
+//			}
+//
+//		}
+//	}
 
 	@Override
 	public ArrayList<Integer> loadOptParameter(String[] parameter_settings, double[] point, int[][] seedInfectNum,
@@ -812,12 +811,12 @@ public class Runnable_ClusterModel_MPox extends Runnable_ClusterModel_Transmissi
 		for (int i = 0; i < parameter_settings.length; i++) {
 			if (trans_offset_key.equals(parameter_settings[i])) {
 				trans_offset = (int) point[i];
-			} else if (sim_switch_time_replace.matcher(parameter_settings[i]).matches()) {
-				// SIM_SWITCH_TIME_REPLACE_(\\d+)
-				Matcher m = sim_switch_time_replace.matcher(parameter_settings[i]);
-				m.find();
-				Integer switch_replace_index = Integer.parseInt(m.group(1));
-				behavioral_switch_setting[switch_replace_index] = (int) point[i];
+//			} else if (sim_switch_time_replace.matcher(parameter_settings[i]).matches()) {
+//				// SIM_SWITCH_TIME_REPLACE_(\\d+)
+//				Matcher m = sim_switch_time_replace.matcher(parameter_settings[i]);
+//				m.find();
+//				Integer switch_replace_index = Integer.parseInt(m.group(1));
+//				behavioral_switch_setting[switch_replace_index] = (int) point[i];
 
 			} else if (sim_switch_entry_replace.matcher(parameter_settings[i]).matches()) {
 				Matcher m = sim_switch_entry_replace.matcher(parameter_settings[i]);
